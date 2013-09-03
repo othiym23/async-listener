@@ -1,4 +1,10 @@
-'use strict';
+"use strict";
+// This module implements the process.addAsyncListener API as proposed for
+// node.js v0.12.x It's exported as an eventSource hook (a callback wrapper).
+
+if (process.addAsyncListener) {
+  throw new Error("Don't require async-listener polyfill unless needed");
+}
 
 var listeners = [];
 
@@ -89,27 +95,6 @@ function wrapCallback(original) {
                 : noWrap(original, list, length);
 }
 
-// Shim activator for functions that have callback last
-function activator(fn) {
-  return function () {
-    var index = arguments.length - 1;
-    if (typeof arguments[index] === "function") {
-      arguments[index] = wrapCallback(arguments[index]);
-    }
-    return fn.apply(this, arguments);
-  };
-}
-
-// Shim activator for functions that have callback first
-function activatorFirst(fn) {
-  return function () {
-    if (typeof arguments[0] === "function") {
-      arguments[0] = wrapCallback(arguments[0]);
-    }
-    return fn.apply(this, arguments);
-  };
-}
-
 function addAsyncListener(onAsync, callbackObject) {
   var listener = {
     onAsync        : onAsync,
@@ -137,8 +122,4 @@ function removeAsyncListener(onAsync) {
 process.addAsyncListener    = addAsyncListener;
 process.removeAsyncListener = removeAsyncListener;
 
-module.exports = {
-  wrapCallback   : wrapCallback,
-  activator      : activator,
-  activatorFirst : activatorFirst
-};
+module.exports = wrapCallback;
