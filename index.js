@@ -2,14 +2,32 @@
 
 if (process.addAsyncListener) throw new Error("Don't require polyfill unless needed");
 
-var shimmer        = require('shimmer')
-  , wrap           = shimmer.wrap
-  , massWrap       = shimmer.massWrap
-  , glue           = require('./glue.js')
-  , wrapCallback   = glue.wrapCallback
-  , activator      = glue.activator
-  , activatorFirst = glue.activatorFirst
+var shimmer      = require('shimmer')
+  , wrap         = shimmer.wrap
+  , massWrap     = shimmer.massWrap
+  , wrapCallback = require('./glue.js')
   ;
+
+// Shim activator for functions that have callback last
+function activator(fn) {
+  return function () {
+    var index = arguments.length - 1;
+    if (typeof arguments[index] === "function") {
+      arguments[index] = wrapCallback(arguments[index]);
+    }
+    return fn.apply(this, arguments);
+  };
+}
+
+// Shim activator for functions that have callback first
+function activatorFirst(fn) {
+  return function () {
+    if (typeof arguments[0] === "function") {
+      arguments[0] = wrapCallback(arguments[0]);
+    }
+    return fn.apply(this, arguments);
+  };
+}
 
 var net = require('net');
 wrap(net.Server.prototype, '_listen2', function (original) {
