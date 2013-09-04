@@ -6,7 +6,7 @@ function runSetup(list, length) {
   var data = new Array(length), i, listener;
   for (i = 0; i < length; ++i) {
     listener = list[i];
-    data[i] = listener.onAsync();
+    data[i] = listener.onAsync.call(this);
   }
   return data;
 }
@@ -118,10 +118,11 @@ function addAsyncListener(onAsync, callbackObject) {
 
   listeners.push(listener);
 
-  return listener;
+  return listener.onAsync;
 }
 
 function removeAsyncListener(onAsync) {
+  if (!onAsync) throw new Error("must pass listener to remove");
   var index = -1;
   for (var i = 0; i < listeners.length; i++) {
     if (listeners[i].onAsync === onAsync) {
