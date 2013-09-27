@@ -1,56 +1,47 @@
-'use strict';
-
 var listeners = [];
 
 function runSetup(list, length) {
-  var data = new Array(length), i, listener;
-  for (i = 0; i < length; ++i) {
-    listener = list[i];
-    data[i] = listener.onAsync.call(this);
+  var data = new Array(length);
+  for (var i = 0; i < length; ++i) {
+    var bundle = list[i];
+    data[i] = bundle.listener.call(this);
   }
   return data;
 }
 
-function runBefore(data, list, length) {
-  var i, obj;
-  for (i = 0; i < length; ++i) {
-    obj = list[i].callbackObject;
-    if (obj && obj.before) obj.before(data[i]);
+function runBefore(data, list, length, context) {
+  for (var i = 0; i < length; ++i) {
+    var callbacks = list[i].callbacks;
+    if (callbacks && callbacks.before) callbacks.before(context, data[i]);
   }
 }
 
-function runAfter(data, list, length) {
-  var i, obj;
-  for (i = 0; i < length; ++i) {
-    obj = list[i].callbackObject;
-    if (obj && obj.after) obj.after(data[i]);
-  }
-  for (i = 0; i < length; ++i) {
-    obj = list[i].callbackObject;
-    if (obj && obj.done) obj.done(data[i]);
+function runAfter(data, list, length, context) {
+  for (var i = 0; i < length; ++i) {
+    var callbacks = list[i].callbacks;
+    if (callbacks && callbacks.after) callbacks.after(context, data[i]);
   }
 }
 
-function runError(data, list, length) {
-  var i, obj;
-  for (i = 0; i < length; ++i) {
-    obj = list[i].callbackObject;
-    if (obj && obj.after) obj.after(data[i]);
+function runError(data, list, length, error) {
+  for (var i = 0; i < length; ++i) {
+    var callbacks = list[i].callbacks;
+    if (callbacks && callbacks.error) callbacks.error(data[i], error);
   }
 }
 
 function catchyWrap(original, list, length) {
   var data = runSetup(list, length);
   return function () {
-    runBefore(data, list, length);
+    runBefore(data, list, length, this);
     try {
       return original.apply(this, arguments);
     }
-    catch (err) {
-      runError(data, list, length);
+    catch (error) {
+      runError(data, list, length, error);
     }
     finally {
-      runAfter(data, list, length);
+      runAfter(data, list, length, this);
     }
   };
 }
@@ -58,18 +49,18 @@ function catchyWrap(original, list, length) {
 function normalWrap(original, list, length) {
   var data = runSetup(list, length);
   return function () {
-    runBefore(data, list, length);
+    runBefore(data, list, length, this);
     try {
       return original.apply(this, arguments);
     }
     finally {
-      runAfter(data, list, length);
+      runAfter(data, list, length, this);
     }
   };
 }
 
 function noWrap(original, list, length) {
-  for (var i = 0; i < length; ++i) list[i].onAsync();
+  for (var i = 0; i < length; ++i) list[i].listener();
   return original;
 }
 
@@ -78,10 +69,10 @@ function wrapCallback(original) {
   var length = list.length;
   var hasAny = false, hasErr = false;
   for (var i = 0; i < length; ++i) {
-    var obj = list[i].callbackObject;
-    if (obj) {
+    var callbacks = list[i].callbacks;
+    if (callbacks) {
       hasAny = true;
-      if (obj.error) hasErr = true;
+      if (callbacks.error) hasErr = true;
     }
   }
   return hasAny ? hasErr ? catchyWrap(original, list, length)
@@ -89,31 +80,33 @@ function wrapCallback(original) {
                 : noWrap(original, list, length);
 }
 
-function addAsyncListener(onAsync, callbackObject) {
-  var listener = {
-    onAsync        : onAsync,
-    callbackObject : callbackObject
+function createAsyncListener(listener, callbacks, domain) {
+  return {
+    listener  : listener,
+    callbacks : callbacks,
+    domain    : domain
   };
-
-  listeners.push(listener);
-
-  return listener.onAsync;
 }
 
-function removeAsyncListener(onAsync) {
-  if (!onAsync) throw new Error("must pass listener to remove");
-  var index = -1;
-  for (var i = 0; i < listeners.length; i++) {
-    if (listeners[i].onAsync === onAsync) {
-      index = i;
-      break;
-    }
+function addAsyncListener(listener, callbacks, domain) {
+  if (typeof listener === 'function') {
+    callbacks = createAsyncListener(listener, callbacks, domain);
   }
-  if (index < 0) throw new Error("async listener not found");
+  else {
+    callbacks = listener;
+  }
 
-  listeners.splice(index, 1);
+  listeners.push(callbacks);
+
+  return callbacks;
 }
 
+function removeAsyncListener(listener) {
+  var index = listeners.indexOf(listener);
+  if (index >= 0) listeners.splice(index, 1);
+}
+
+process.createAsyncListener = createAsyncListener;
 process.addAsyncListener    = addAsyncListener;
 process.removeAsyncListener = removeAsyncListener;
 

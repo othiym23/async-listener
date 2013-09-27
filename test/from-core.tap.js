@@ -40,6 +40,7 @@ test("async listener polyfill", function (t) {
 
   var EventEmitter   = require('events').EventEmitter
     , fs             = require('fs')
+    , createListener = process.createAsyncListener
     , addListener    = process.addAsyncListener
     , removeListener = process.removeAsyncListener
     , async          = 0
@@ -65,25 +66,27 @@ test("async listener polyfill", function (t) {
 
   // --- Begin Testing --- //
   function onAsync() { async++; }
+  var listener1 = createListener(onAsync);
   function onAsync2() { async++; }
+  var listener2 = createListener(onAsync2);
 
 
   // Catch that an async callback was queued
   testQueue.push(function() {
-    addListener(onAsync);
+    addListener(listener1);
 
     setTimeout(function() {
       testComplete();
     });
     expectAsync++;
 
-    removeListener(onAsync);
+    removeListener(listener1);
   });
 
 
   // Async listeners should propagate with nested callbacks
   testQueue.push(function() {
-    addListener(onAsync);
+    addListener(listener1);
 
     process.nextTick(function() {
       setTimeout(function() {
@@ -100,16 +103,16 @@ test("async listener polyfill", function (t) {
     });
     expectAsync++;
 
-    removeListener(onAsync);
+    removeListener(listener1);
   });
 
 
   // Test removing the async listener in the middle of nested callbacks
   testQueue.push(function() {
-    addListener(onAsync);
+    addListener(listener1);
 
     setTimeout(function() {
-      removeListener(onAsync);
+      removeListener(listener1);
       setImmediate(testComplete);
     });
     expectAsync++;
@@ -119,7 +122,7 @@ test("async listener polyfill", function (t) {
   // Test callbacks from fs I/O
   testQueue.push(function() {
     var cntr = 2;
-    addListener(onAsync);
+    addListener(listener1);
 
     fs.stat('something random', function() {
       if (--cntr < 1) testComplete();
@@ -134,14 +137,14 @@ test("async listener polyfill", function (t) {
     });
     expectAsync++;
 
-    removeListener(onAsync);
+    removeListener(listener1);
   });
 
 
   // Capture any callback passed to the event emitter
   testQueue.push(function() {
     var someEvent = new EventEmitter();
-    addListener(onAsync);
+    addListener(listener1);
 
     someEvent.on('stuff', function() { });
     expectAsync++;
@@ -153,14 +156,14 @@ test("async listener polyfill", function (t) {
     });
     expectAsync++;
 
-    removeListener(onAsync);
+    removeListener(listener1);
   });
 
 
   // Test triggers with two async listeners
   testQueue.push(function() {
-    addListener(onAsync);
-    addListener(onAsync2);
+    addListener(listener1);
+    addListener(listener2);
 
     setTimeout(function() {
       process.nextTick(function() {
@@ -171,19 +174,19 @@ test("async listener polyfill", function (t) {
     });
     expectAsync += 2;
 
-    removeListener(onAsync);
-    removeListener(onAsync2);
+    removeListener(listener1);
+    removeListener(listener2);
   });
 
 
   // Test when one of two async listeners is removed in the
   // middle of an asynchronous call stack
   testQueue.push(function() {
-    addListener(onAsync);
-    addListener(onAsync2);
+    addListener(listener1);
+    addListener(listener2);
 
     setTimeout(function() {
-      removeListener(onAsync2);
+      removeListener(listener2);
       setImmediate(function() {
         process.nextTick(testComplete);
         expectAsync++;
@@ -192,6 +195,6 @@ test("async listener polyfill", function (t) {
     });
     expectAsync += 2;
 
-    removeListener(onAsync);
+    removeListener(listener1);
   });
 });
