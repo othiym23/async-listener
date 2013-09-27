@@ -1,10 +1,28 @@
+var wrap = require('shimmer').wrap;
+
 var listeners = [];
+
+wrap(process, '_fatalException', function (_fatalException) {
+  return function _asyncFatalException(er) {
+    var length = listeners.length;
+    for (var i = 0; i < length; ++i) {
+      var callbacks = listeners[i].callbacks;
+      // FIXME: find the actual domain element
+      var domain = {};
+      if (callbacks.error && callbacks.error(domain, er)) {
+        process._needTickCallback();
+        return true;
+      }
+    }
+
+    return _fatalException(er);
+  };
+});
 
 function runSetup(list, length) {
   var data = new Array(length);
   for (var i = 0; i < length; ++i) {
-    var bundle = list[i];
-    data[i] = bundle.listener.call(this);
+    data[i] = list[i].listener.call(this);
   }
   return data;
 }
@@ -21,29 +39,6 @@ function runAfter(data, list, length, context) {
     var callbacks = list[i].callbacks;
     if (callbacks && callbacks.after) callbacks.after(context, data[i]);
   }
-}
-
-function runError(data, list, length, error) {
-  for (var i = 0; i < length; ++i) {
-    var callbacks = list[i].callbacks;
-    if (callbacks && callbacks.error) callbacks.error(data[i], error);
-  }
-}
-
-function catchyWrap(original, list, length) {
-  var data = runSetup(list, length);
-  return function () {
-    runBefore(data, list, length, this);
-    try {
-      return original.apply(this, arguments);
-    }
-    catch (error) {
-      runError(data, list, length, error);
-    }
-    finally {
-      runAfter(data, list, length, this);
-    }
-  };
 }
 
 function normalWrap(original, list, length) {
@@ -65,19 +60,13 @@ function noWrap(original, list, length) {
 }
 
 function wrapCallback(original) {
-  var list = Array.prototype.slice.call(listeners);
+  var list = [].slice.call(listeners);
   var length = list.length;
-  var hasAny = false, hasErr = false;
   for (var i = 0; i < length; ++i) {
-    var callbacks = list[i].callbacks;
-    if (callbacks) {
-      hasAny = true;
-      if (callbacks.error) hasErr = true;
-    }
+    if (list[i].callbacks) return normalWrap(original, list, length);
   }
-  return hasAny ? hasErr ? catchyWrap(original, list, length)
-                         : normalWrap(original, list, length)
-                : noWrap(original, list, length);
+
+  return noWrap(original, list, length);
 }
 
 function createAsyncListener(listener, callbacks, domain) {
