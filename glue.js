@@ -2,8 +2,26 @@ var wrap = require('shimmer').wrap;
 
 var listeners = [];
 
-wrap(process, '_fatalException', function (_fatalException) {
-  return function _asyncFatalException(er) {
+if (process._fatalException) {
+  wrap(process, '_fatalException', function (_fatalException) {
+    return function _asyncFatalException(er) {
+      var length = listeners.length;
+      for (var i = 0; i < length; ++i) {
+        var callbacks = listeners[i].callbacks;
+        // FIXME: find the actual domain element
+        var domain = {};
+        if (callbacks.error && callbacks.error(domain, er)) {
+          process._needTickCallback();
+          return true;
+        }
+      }
+
+      return _fatalException(er);
+    };
+  });
+}
+else {
+  process.on('uncaughtException', function _asyncUncaughtException(er) {
     var length = listeners.length;
     for (var i = 0; i < length; ++i) {
       var callbacks = listeners[i].callbacks;
@@ -15,9 +33,9 @@ wrap(process, '_fatalException', function (_fatalException) {
       }
     }
 
-    return _fatalException(er);
-  };
-});
+    return false;
+  });
+}
 
 function runSetup(list, length) {
   var data = new Array(length);
