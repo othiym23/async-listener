@@ -20,12 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-if (process.addAsyncListener) {
-  console.error("meant for nodes without core support for async listeners");
-  process.exit(1);
-}
-
-require('../index.js');
+if (!process.addAsyncListener) require('../index.js');
 
 var assert = require('assert');
 var fs = require('fs');

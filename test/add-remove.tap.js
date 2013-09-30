@@ -5,12 +5,7 @@ var test = require('tap').test;
 test("async listener lifecycle", function (t) {
   t.plan(8);
 
-  if (process.addAsyncListener) {
-    t.fail("this package is meant nodes without core support for async listeners");
-    return t.end();
-  }
-
-  require('../index.js');
+  if (!process.addAsyncListener) require('../index.js');
 
   t.ok(process.createAsyncListener, "can create async listeners");
   var counted = 0;
