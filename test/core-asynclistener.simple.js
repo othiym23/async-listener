@@ -20,7 +20,7 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-if (process.addAsyncListener) require('../index.js');
+if (!process.addAsyncListener) require('../index.js');
 
 var assert = require('assert');
 var net = require('net');
