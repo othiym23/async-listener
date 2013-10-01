@@ -78,7 +78,7 @@ function noWrap(original, list, length) {
 }
 
 function wrapCallback(original) {
-  var list = [].slice.call(listeners);
+  var list = listeners.slice();
   var length = list.length;
   for (var i = 0; i < length; ++i) {
     if (list[i].callbacks) return normalWrap(original, list, length);
