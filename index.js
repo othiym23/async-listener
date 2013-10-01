@@ -140,8 +140,27 @@ if (fs.lchmod) wrap(fs, 'lchmod', activator);
 if (fs.ftruncate) wrap(fs, 'ftruncate', activator);
 
 // Wrap zlib streams
-var zProto = Object.getPrototypeOf(require('zlib').Deflate.prototype);
-wrap(zProto, "_transform", activator);
+var zlib;
+try { zlib = require('zlib'); } catch (err) { }
+if (zlib && zlib.Deflate && zlib.Deflate.prototype) {
+  var proto = Object.getPrototypeOf(zlib.Deflate.prototype);
+  if (proto._transform) {
+    // streams2
+    wrap(proto, "_transform", activator);
+  }
+  else if (proto.write && proto.flush && proto.end) {
+    // plain ol' streams
+    massWrap(
+      proto,
+      [
+        'write',
+        'flush',
+        'end'
+      ],
+      activator
+    );
+  }
+}
 
 // Wrap Crypto
 var crypto;
