@@ -1,6 +1,8 @@
 var wrap = require('shimmer').wrap;
 
 var listeners = [];
+// this only works because throwing is synchronous. It's not a good idea.
+var _curData;
 
 if (process._fatalException) {
   wrap(process, '_fatalException', function (_fatalException) {
@@ -8,8 +10,8 @@ if (process._fatalException) {
       var length = listeners.length;
       for (var i = 0; i < length; ++i) {
         var callbacks = listeners[i].callbacks;
-        // FIXME: find the actual domain element
         var domain = {};
+        if (_curData && _curData[i]) domain = _curData[i];
         if (callbacks.error && callbacks.error(domain, er)) {
           process._needTickCallback();
           return true;
@@ -25,8 +27,8 @@ else {
     var length = listeners.length;
     for (var i = 0; i < length; ++i) {
       var callbacks = listeners[i].callbacks;
-      // FIXME: find the actual domain element
       var domain = {};
+      if (_curData && _curData[i]) domain = _curData[i];
       if (callbacks.error && callbacks.error(domain, er)) {
         process._needTickCallback();
         return true;
@@ -55,6 +57,7 @@ function asyncWrap(original, list, length) {
 
     try {
       // save returned to pass to `after`
+      _curData = data;
       returned = original.apply(this, arguments);
       return returned;
     }
