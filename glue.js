@@ -37,37 +37,33 @@ else {
   });
 }
 
-function runSetup(list, length) {
-  var data = new Array(length);
+function asyncWrap(original, list, length) {
+  // setup
+  var data = [];
   for (var i = 0; i < length; ++i) {
     data[i] = list[i].listener.call(this);
   }
-  return data;
-}
 
-function runBefore(data, list, length, context) {
-  for (var i = 0; i < length; ++i) {
-    var callbacks = list[i].callbacks;
-    if (callbacks && callbacks.before) callbacks.before(context, data[i]);
-  }
-}
-
-function runAfter(data, list, length, context) {
-  for (var i = 0; i < length; ++i) {
-    var callbacks = list[i].callbacks;
-    if (callbacks && callbacks.after) callbacks.after(context, data[i]);
-  }
-}
-
-function normalWrap(original, list, length) {
-  var data = runSetup(list, length);
   return function () {
-    runBefore(data, list, length, this);
+    var i, callbacks, returned;
+
+    // call `before`
+    for (i = 0; i < length; ++i) {
+      callbacks = list[i].callbacks;
+      if (callbacks && callbacks.before) callbacks.before(this, data[i]);
+    }
+
     try {
-      return original.apply(this, arguments);
+      // save returned to pass to `after`
+      returned = original.apply(this, arguments);
+      return returned;
     }
     finally {
-      runAfter(data, list, length, this);
+      // call `after`
+      for (i = 0; i < length; ++i) {
+        callbacks = list[i].callbacks;
+        if (callbacks && callbacks.after) callbacks.after(this, data[i], returned);
+      }
     }
   };
 }
@@ -81,7 +77,7 @@ function wrapCallback(original) {
   var list = listeners.slice();
   var length = list.length;
   for (var i = 0; i < length; ++i) {
-    if (list[i].callbacks) return normalWrap(original, list, length);
+    if (list[i].callbacks) return asyncWrap(original, list, length);
   }
 
   return noWrap(original, list, length);
