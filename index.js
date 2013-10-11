@@ -68,7 +68,7 @@ var asynchronizers = [
 if (global.setImmediate) asynchronizers.push('setImmediate');
 
 massWrap(
-  [global, require('timers')],
+  require('timers'),
   asynchronizers,
   activatorFirst
 );
