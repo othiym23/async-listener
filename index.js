@@ -35,9 +35,16 @@ wrap(net.Server.prototype, '_listen2', function (original) {
     this.on('connection', function (socket) {
       socket._handle.onread = wrapCallback(socket._handle.onread);
     });
-    var result = original.apply(this, arguments);
-    this._handle.onconnection = wrapCallback(this._handle.onconnection);
-    return result;
+
+    try {
+      return original.apply(this, arguments);
+    }
+    finally {
+      // the handle will only not be set in cases where there has been an error
+      if (this._handle && this._handle.onconnection) {
+        this._handle.onconnection = wrapCallback(this._handle.onconnection);
+      }
+    }
   };
 });
 
