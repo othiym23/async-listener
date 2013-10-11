@@ -55,17 +55,21 @@ function asyncWrap(original, list, length) {
       if (callbacks && callbacks.before) callbacks.before(this, data[i]);
     }
 
+    var threw = true;
     try {
       // save returned to pass to `after`
       _curData = data;
       returned = original.apply(this, arguments);
+      threw = false;
       return returned;
     }
     finally {
-      // call `after`
-      for (i = 0; i < length; ++i) {
-        callbacks = list[i].callbacks;
-        if (callbacks && callbacks.after) callbacks.after(this, data[i], returned);
+      if (!threw) {
+        // call `after`
+        for (i = 0; i < length; ++i) {
+          callbacks = list[i].callbacks;
+          if (callbacks && callbacks.after) callbacks.after(this, data[i], returned);
+        }
       }
     }
   };
