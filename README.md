@@ -11,79 +11,45 @@ this writing as 0.11.7).
 Here's his documentation of the intended API, which will probably get cleaned up
 here later:
 
-```javascript
-// Class that will store information about a specific request.
-function Domain() { }
+## createAsyncListener(listener[, callbacks[, storage]])
 
-// This will be called every time asynchronous work is queued.
-// The returned data will propagate to the callbackObject's callbacks.
-// If no callbackObject is passed to asyncListener then the return value
-// will be discarded.
-function onAsync() {
-  return new Domain();
-}
+* `listener` {Function}
+* `callbacks` {Object}
+* `storage` {Value}
 
-// Set of methods that will run at specific points in time according to
-// their cooresponding callbacks. These methods are always run FIFO if
-// multiple are queued.
-// "context" is the "this" of the request object.
-var callbackObject = {
-  before: function asyncBefore(context, domain) {
-  },
-  // "returnValue" is the value returned from the callback.
-  after: function asyncAfter(context, domain, returnValue) {
-  },
-  // If this callback returns "true" then the error handler will assume
-  // the error was properly handled, and process will continue normally.
-  // If multiple error handlers are queued, and any one of those returns
-  // true, then Node will assume the error was properly handled.
-  // This will not currently be passed the context (or "this") of the
-  // callback that threw. A simple way of achieving this is currently
-  // being investigated, and the feature will be added when one is found.
-  error: function asyncError(domain, err) {
-  }
-};
+Returns a constructed `AsyncListener` object. Which can then be passed to
+`process.addAsyncListener()` and `process.removeAsyncListener()`. Each
+function parameter is as follows:
 
-/**
- * process.addAsyncListener(callback[, object[, domain]]);
- *
- * Arguments:
- *
- * callback - Function that will be run when an asynchronous job is
- *    queued.
- *
- * object - Object with the optional callbacks set on:
- *    before - Callback called just before the asynchronous callback
- *        will be called.
- *    after - Callback called directly after the asynchronous callback.
- *    error - Callback called if there was an error.
- *
- * The returned key is an Object that serves as the unique key for the
- * call (much like how Timers work).
- */
-var key = process.addAsyncListener(onAsync, callbackObject);
+* `listener(storage)`: A `Function` called as an asynchronous event is
+queued. If a {Value} is returned then it will be attached to the event as
+`storage` and overwrite any pre-defined value passed to
+`createAsyncListener()`. If a `storage` argument is passed initially then
+it will also be passed to `listener()`.
+* `callbacks`: An `Object` which may contain three optional fields:
+  * `before(context, storage)`: A `Function` that is called immediately
+  before the asynchronous callback is about to run. It will be passed both
+  the `context` (i.e. `this`) of the calling function and the `storage`
+  either returned from `listener` or passed during construction (if either
+  was done).
+  * `after(context, storage)`: A `Function` called immediately after the
+  asynchronous event's callback is run. Note that if the event's callback
+  throws during execution this will not be called.
+  * `error(storage, error)`: A `Function` called if the event's callback
+  threw. If `error` returns `true` then Node will assume the error has
+  been properly handled and resume execution normally.
+* `storage`: A `Value` (i.e. anything) that will be, by default, attached
+to all new event instances. This will be overwritten if a `Value` is
+returned by `listener()`.
 
 
-/**
- * process.createAsyncListener(callback[, object[, domain]]);
- *
- * Adding an async listener will immediately add it to the queue and
- * being listening for events. If you wish to create the listener in
- * advance, to say attach to the returned domain object, it's possible
- * to get the key and pass it to process.addAsyncListener() later.
- */
-var key = process.createAsyncListener(onAsync, callbackObject, domain);
+## addAsyncListener(listener[, callbacks[, storage]])
+## addAsyncListener(asyncListener)
 
-// Then activate like so:
-process.addAsyncListener(key);
+Returns a constructed `AsyncListener` object and immediately adds it to
+the listening queue.
 
 
-/**
- * process.removeAsyncListener(key);
- *
- * Remove any async listeners and associated callbackObjects. All
- * listeners will live independent of each other, and there will be no
- * method given to clear all async listeners.
- */
-process.removeAsyncListener(key);
-```
+## removeAsyncListener(asyncListener)
+
+Removes the `asyncListener` from the listening queue.
