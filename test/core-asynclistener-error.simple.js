@@ -19,11 +19,14 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+var PORT = 12346;
 
 if (!process.addAsyncListener) require('../index.js');
 
 var assert = require('assert');
+var dns = require('dns');
 var fs = require('fs');
+var net = require('net');
 var addListener = process.addAsyncListener;
 var removeListener = process.removeAsyncListener;
 
@@ -49,6 +52,12 @@ var callbacksObj = {
       case 'setInterval - nested':
       case 'fs - file does not exist':
       case 'fs - nested file does not exist':
+      case 'fs - exists':
+      case 'fs - realpath':
+      case 'net - connection listener':
+      case 'net - server listening':
+      case 'net - client connect':
+      case 'dns - lookup':
         return true;
 
       default:
@@ -146,6 +155,16 @@ process.nextTick(function() {
   });
   expectCaught++;
 
+  fs.exists('hi all', function() {
+    throw new Error('fs - exists');
+  });
+  expectCaught++;
+
+  fs.realpath('/some/path', function() {
+    throw new Error('fs - realpath');
+  });
+  expectCaught++;
+
   removeListener(listener);
 });
 
@@ -167,6 +186,43 @@ process.nextTick(function() {
       });
     });
   });
+
+  removeListener(listener);
+});
+
+
+// Net
+process.nextTick(function() {
+  addListener(listener);
+
+  var server = net.createServer(function() {
+    server.close();
+    throw new Error('net - connection listener');
+  });
+  expectCaught++;
+
+  server.listen(PORT, function() {
+    var client = net.connect(PORT, function() {
+      client.end();
+      throw new Error('net - client connect');
+    });
+    expectCaught++;
+    throw new Error('net - server listening');
+  });
+  expectCaught++;
+
+  removeListener(listener);
+});
+
+
+// DNS
+process.nextTick(function() {
+  addListener(listener);
+
+  dns.lookup('localhost', function() {
+    throw new Error('dns - lookup');
+  });
+  expectCaught++;
 
   removeListener(listener);
 });

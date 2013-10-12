@@ -1,77 +1,85 @@
 var wrap = require('shimmer').wrap;
 
 var listeners = [];
-// this only works because throwing is synchronous. It's not a good idea.
-var _curData;
+var uid = 0;
+
+/**
+ * Throwing always happens synchronously. If the current array of values for
+ * the current list of asyncListeners is put in a module-scoped variable right
+ * before a call that can throw, it will always be correct when the error
+ * handlers are run.
+ */
+var errorData = null;
+var inAsyncTick = false, inErrorTick = false;
+function asyncErrorHandler(er) {
+  if (inErrorTick) return false;
+  if (!listeners || listeners.length === 0) return false;
+
+  var handled = false;
+
+  inErrorTick = true;
+  var length = listeners.length;
+  for (var i = 0; i < length; ++i) {
+    if (!listeners[i].callbacks) continue;
+
+    var error = listeners[i].callbacks.error;
+    var value = errorData && errorData[i];
+    if (typeof error === 'function') handled = error(value, er) || handled;
+  }
+  inErrorTick = false;
+
+  return handled && !inAsyncTick;
+}
 
 if (process._fatalException) {
   wrap(process, '_fatalException', function (_fatalException) {
     return function _asyncFatalException(er) {
-      var length = listeners.length;
-      for (var i = 0; i < length; ++i) {
-        var callbacks = listeners[i].callbacks;
-        var domain = {};
-        if (_curData && _curData[i]) domain = _curData[i];
-        if (callbacks.error && callbacks.error(domain, er)) {
-          process._needTickCallback();
-          return true;
-        }
-      }
-
-      return _fatalException(er);
+      return asyncErrorHandler(er) || _fatalException(er);
     };
   });
 }
 else {
+  // will be the first to fire if async-listener is the first module loaded
   process.on('uncaughtException', function _asyncUncaughtException(er) {
-    var length = listeners.length;
-    for (var i = 0; i < length; ++i) {
-      var callbacks = listeners[i].callbacks;
-      var domain = {};
-      if (_curData && _curData[i]) domain = _curData[i];
-      if (callbacks.error && callbacks.error(domain, er)) {
-        process._needTickCallback();
-        return true;
-      }
-    }
-
-    return false;
+    return asyncErrorHandler(er) || false;
   });
 }
 
 function asyncWrap(original, list, length) {
-  // setup
   var data = [];
+  inAsyncTick = true;
   for (var i = 0; i < length; ++i) {
-    data[i] = list[i].listener.call(this);
+    /* asyncListener.domain is the default value passed through before and
+     * after if the listener doesn't return a value.
+     */
+    data[i] = list[i].domain;
+    var value = list[i].listener.call(this);
+    if (typeof value !== 'undefined') data[i] = value;
   }
+  inAsyncTick = false;
 
   return function () {
-    var i, callbacks, returned;
+    inAsyncTick = true;
+    for (var i = 0; i < length; ++i) {
+      var before = list[i].callbacks && list[i].callbacks.before;
+      if (before) before(this, data[i]);
+    }
+    inAsyncTick = false;
 
-    // call `before`
+    // stash for error handling
+    errorData = data;
+    listeners = list.slice();
+
+    // save the return value to pass to the after callbacks
+    var returned = original.apply(this, arguments);
+
+    inAsyncTick = true;
     for (i = 0; i < length; ++i) {
-      callbacks = list[i].callbacks;
-      if (callbacks && callbacks.before) callbacks.before(this, data[i]);
+      var after = list[i].callbacks && list[i].callbacks.after;
+      if (after) after(this, data[i], returned);
     }
-
-    var threw = true;
-    try {
-      // save returned to pass to `after`
-      _curData = data;
-      returned = original.apply(this, arguments);
-      threw = false;
-      return returned;
-    }
-    finally {
-      if (!threw) {
-        // call `after`
-        for (i = 0; i < length; ++i) {
-          callbacks = list[i].callbacks;
-          if (callbacks && callbacks.after) callbacks.after(this, data[i], returned);
-        }
-      }
-    }
+    inAsyncTick = false;
+    return returned;
   };
 }
 
@@ -90,30 +98,45 @@ function wrapCallback(original) {
   return noWrap(original, list, length);
 }
 
-function createAsyncListener(listener, callbacks, domain) {
+function createAsyncListener(listener, callbacks, value) {
   return {
     listener  : listener,
     callbacks : callbacks,
-    domain    : domain
+    domain    : value,
+    uid       : uid++
   };
 }
 
-function addAsyncListener(listener, callbacks, domain) {
+function addAsyncListener(listener, callbacks, value) {
+  var asyncListener;
   if (typeof listener === 'function') {
-    callbacks = createAsyncListener(listener, callbacks, domain);
+    asyncListener = createAsyncListener(listener, callbacks, value);
   }
   else {
-    callbacks = listener;
+    asyncListener = listener;
   }
 
-  listeners.push(callbacks);
+  // Make sure the asyncListener isn't already in the list.
+  var registered = false;
+  for (var i = 0; i < listeners.length; i++) {
+    if (asyncListener.uid === listeners[i].uid) {
+      registered = true;
+      break;
+    }
+  }
 
-  return callbacks;
+  if (!registered) listeners.push(asyncListener);
+
+  return asyncListener;
 }
 
 function removeAsyncListener(listener) {
-  var index = listeners.indexOf(listener);
-  if (index >= 0) listeners.splice(index, 1);
+  for (var i = 0; i < listeners.length; i++) {
+    if (listener.uid === listeners[i].uid) {
+      listeners.splice(i, 1);
+      break;
+    }
+  }
 }
 
 process.createAsyncListener = createAsyncListener;
