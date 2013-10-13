@@ -1,7 +1,32 @@
 var wrap = require('shimmer').wrap;
 
+/**
+ * There is one list of currently active listeners that is mutated in place by
+ * addAsyncListener and removeAsyncListener. This complicates error-handling,
+ * for reasons that are discussed below.
+ */
 var listeners = [];
+
+/**
+ * There can be multiple listeners with the same properties, so disambiguate
+ * them by assigning them an ID at creation time.
+ */
 var uid = 0;
+
+/**
+ * Ensure that errors coming from within listeners are handed off to domains,
+ * process._fatalException, or uncaughtException without being treated like
+ * user errors.
+ */
+var inAsyncTick = false;
+
+/**
+ * Error handlers on listeners can throw, the the catcher needs to be able to
+ * discriminate between exceptions thrown by user code, and exceptions coming
+ * from within the catcher itself. Use a global to keep track of which state
+ * the catcher is currently in.
+ */
+var inErrorTick = false;
 
 /**
  * Throwing always happens synchronously. If the current array of values for
@@ -9,85 +34,146 @@ var uid = 0;
  * before a call that can throw, it will always be correct when the error
  * handlers are run.
  */
-var errorData = null;
-var inAsyncTick = false, inErrorTick = false;
-function asyncErrorHandler(er) {
-  if (inErrorTick) return false;
-  if (!listeners || listeners.length === 0) return false;
+var errorValues;
+
+/**
+ * Because asynchronous contexts can be nested, and errors can come from anywhere
+ * in the stack, a little extra work is required to keep track of where in the
+ * nesting we are. Because JS arrays are frequently mutated in place
+ */
+var listenerStack = [];
+
+/**
+ * The error handler on a listener can capture errors thrown during synchronous
+ * execution immediately after the listener is added. To capture both
+ * synchronous and asynchronous errors, the error handler just uses the
+ * "global" list of active listeners, and the rest of the code ensures that the
+ * listener list is correct by using a stack of listener lists during
+ * asynchronous execution.
+ */
+function asyncCatcher(er) {
+  var length = listeners.length;
+  if (inErrorTick || length === 0) return false;
 
   var handled = false;
 
   inErrorTick = true;
-  var length = listeners.length;
   for (var i = 0; i < length; ++i) {
     if (!listeners[i].callbacks) continue;
 
     var error = listeners[i].callbacks.error;
-    var value = errorData && errorData[i];
+    var value = errorValues && errorValues[i];
     if (typeof error === 'function') handled = error(value, er) || handled;
   }
   inErrorTick = false;
 
+  /* Test whether there are any listener arrays on the stack because
+   * of synchronous throws.
+   */
+  if (listenerStack.length > 0) listeners = listenerStack.pop();
+  errorValues = undefined;
+
   return handled && !inAsyncTick;
 }
 
+// 0.9+
 if (process._fatalException) {
   wrap(process, '_fatalException', function (_fatalException) {
     return function _asyncFatalException(er) {
-      return asyncErrorHandler(er) || _fatalException(er);
+      return asyncCatcher(er) || _fatalException(er);
     };
   });
 }
+// 0.8 and below
 else {
   // will be the first to fire if async-listener is the first module loaded
   process.on('uncaughtException', function _asyncUncaughtException(er) {
-    return asyncErrorHandler(er) || false;
+    return asyncCatcher(er) || false;
   });
 }
 
+/**
+ * The guts of the system -- called each time an asynchronous event happens
+ * while one or more listeners are active.
+ */
 function asyncWrap(original, list, length) {
-  var data = [];
+  var values = [];
+
+  /*
+   * listeners
+   */
   inAsyncTick = true;
   for (var i = 0; i < length; ++i) {
     /* asyncListener.domain is the default value passed through before and
      * after if the listener doesn't return a value.
      */
-    data[i] = list[i].domain;
+    values[i] = list[i].domain;
     var value = list[i].listener.call(this);
-    if (typeof value !== 'undefined') data[i] = value;
+    if (typeof value !== 'undefined') values[i] = value;
   }
   inAsyncTick = false;
 
+  /* One of the main differences between this polyfill and the core
+   * asyncListener support is that core avoids creating closures by putting a
+   * lot of the state managemnt on the C++ side of Node (and of course also it
+   * bakes support for async listeners into the Node C++ API through the
+   * AsyncWrap class, which means that it doesn't monkeypatch basically every
+   * async method like this does).
+   */
   return function () {
+    /*
+     * before handlers
+     */
     inAsyncTick = true;
     for (var i = 0; i < length; ++i) {
       var before = list[i].callbacks && list[i].callbacks.before;
-      if (before) before(this, data[i]);
+      if (typeof before === 'function') before(this, values[i]);
     }
     inAsyncTick = false;
 
-    // stash for error handling
-    errorData = data;
+    // put the current values where the catcher can see them
+    errorValues = values;
+
+    /* More than one listener can end up inside these closures, so save the
+     * current listeners on a stack.
+     */
+    listenerStack.push(listeners);
+
+    // the catcher just uses listeners so it can handle both sync & async errors
     listeners = list.slice();
 
     // save the return value to pass to the after callbacks
     var returned = original.apply(this, arguments);
 
+    // back to the previous listener list on the stack
+    listeners = listenerStack.pop();
+    errorValues = undefined;
+
+    /*
+     * after handlers (not run if original throws)
+     */
     inAsyncTick = true;
     for (i = 0; i < length; ++i) {
       var after = list[i].callbacks && list[i].callbacks.after;
-      if (after) after(this, data[i], returned);
+      if (typeof after === 'function') after(this, values[i], returned);
     }
     inAsyncTick = false;
+
     return returned;
   };
 }
 
+// for performance in the case where there are no handlers, just the listener
 function noWrap(original, list, length) {
   for (var i = 0; i < length; ++i) list[i].listener();
   return original;
 }
 
+/**
+ * Called each time an asynchronous function that's been monkeypatched in
+ * index.js is called. If any of the asyncListeners have callbacks, pass
+ * them off to asyncWrap for later use, otherwise just call the listener.
+ */
 function wrapCallback(original) {
   var list = listeners.slice();
   var length = list.length;
