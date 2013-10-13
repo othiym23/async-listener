@@ -138,7 +138,7 @@ function asyncWrap(original, list, length) {
      * after if the listener doesn't return a value.
      */
     values[i] = list[i].domain;
-    var value = list[i].listener.call(this);
+    var value = list[i].listener.call(this, original);
     if (typeof value !== 'undefined') values[i] = value;
   }
   inAsyncTick = false;
