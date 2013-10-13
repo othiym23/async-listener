@@ -97,6 +97,32 @@ else {
 }
 
 /**
+ * Simple helper function that's probably faster than using Array
+ * filter methods and can be inlined.
+ */
+function union(dest, destLength, added, addedLength) {
+  var returned = [];
+
+  if (destLength === 0 && addedLength === 0) return returned;
+
+  for (var j  = 0; j < destLength; j++) returned[j] = dest[j];
+
+  if (addedLength === 0) return returned;
+
+  for (var i = 0; i < addedLength; i++) {
+    var missing = true;
+    for (j = 0; j < destLength; j++) {
+      if (dest[j].uid === added[i].uid) {
+        missing = false;
+        break;
+      }
+    }
+    if (missing) returned.push(added[i]);
+  }
+
+  return returned;
+}
+/**
  * The guts of the system -- called each time an asynchronous event happens
  * while one or more listeners are active.
  */
@@ -143,8 +169,10 @@ function asyncWrap(original, list, length) {
      */
     listenerStack.push(listeners);
 
-    // the catcher just uses listeners so it can handle both sync & async errors
-    listeners = list.slice();
+    /* Activate both the listeners that were active when the closure was
+     * created and the listeners that were previously active.
+     */
+    listeners = union(list, length, listeners, listeners.length);
 
     // save the return value to pass to the after callbacks
     var returned = original.apply(this, arguments);
@@ -177,7 +205,7 @@ function simpleWrap(original, list, length) {
   // of the listeners active at their creation
   return function () {
     listenerStack.push(listeners);
-    listeners = list.slice();
+    listeners = union(list, length, listeners, listeners.length);
 
     var returned = original.apply(this, arguments);
 
