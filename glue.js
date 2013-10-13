@@ -57,6 +57,9 @@ function asyncCatcher(er) {
 
   var handled = false;
 
+  /*
+   * error handlers
+   */
   inErrorTick = true;
   for (var i = 0; i < length; ++i) {
     if (!listeners[i].callbacks) continue;
@@ -67,8 +70,9 @@ function asyncCatcher(er) {
   }
   inErrorTick = false;
 
-  /* Test whether there are any listener arrays on the stack because
-   * of synchronous throws.
+  /* Test whether there are any listener arrays on the stack. In the case of
+   * synchronous throws when the listener is active, there may have been
+   * none pushed yet.
    */
   if (listenerStack.length > 0) listeners = listenerStack.pop();
   errorValues = undefined;
@@ -164,24 +168,45 @@ function asyncWrap(original, list, length) {
 }
 
 // for performance in the case where there are no handlers, just the listener
-function noWrap(original, list, length) {
+function simpleWrap(original, list, length) {
+  inAsyncTick = true;
   for (var i = 0; i < length; ++i) list[i].listener();
-  return original;
+  inAsyncTick = false;
+
+  // still need to make sure nested async calls are made in the context
+  // of the listeners active at their creation
+  return function () {
+    listenerStack.push(listeners);
+    listeners = list.slice();
+
+    var returned = original.apply(this, arguments);
+
+    listeners = listenerStack.pop();
+
+    return returned;
+  };
 }
 
 /**
  * Called each time an asynchronous function that's been monkeypatched in
- * index.js is called. If any of the asyncListeners have callbacks, pass
- * them off to asyncWrap for later use, otherwise just call the listener.
+ * index.js is called. If there are no listeners, return the function
+ * unwrapped.  If there are any asyncListeners and any of them have callbacks,
+ * pass them off to asyncWrap for later use, otherwise just call the listener.
  */
 function wrapCallback(original) {
+  var length = listeners.length;
+
+  // no context to capture, so avoid closure creation
+  if (length === 0) return original;
+
+  // capture the active listeners as of when the wrapped function was called
   var list = listeners.slice();
-  var length = list.length;
+
   for (var i = 0; i < length; ++i) {
     if (list[i].callbacks) return asyncWrap(original, list, length);
   }
 
-  return noWrap(original, list, length);
+  return simpleWrap(original, list, length);
 }
 
 function createAsyncListener(listener, callbacks, value) {
