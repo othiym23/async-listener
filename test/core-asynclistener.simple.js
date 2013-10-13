@@ -51,6 +51,7 @@ function onAsync() {
 
 
 var listener = process.createAsyncListener(onAsync);
+var listener2 = process.createAsyncListener(onAsync);
 
 
 // Test listeners side-by-side
@@ -130,7 +131,7 @@ process.nextTick(function() {
 // Test triggers with two async listeners
 process.nextTick(function() {
   addListener(listener);
-  addListener(listener);
+  addListener(listener2);
 
   setTimeout(function() {
     process.nextTick(function() { });
@@ -139,7 +140,7 @@ process.nextTick(function() {
   expectAsync += 2;
 
   removeListener(listener);
-  removeListener(listener);
+  removeListener(listener2);
 });
 
 
