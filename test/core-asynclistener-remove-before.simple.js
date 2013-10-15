@@ -26,30 +26,34 @@ var assert = require('assert');
 var active = null;
 var cntr = 0;
 
+function onAsync0() {
+  return 0;
+}
 
-process.addAsyncListener(function() {
-  return { val: ++cntr };
-}, {
-  before: function(context, domain) {
-    active = domain.val;
+var asyncNoHandleError = {
+  before: function () {
+    set ++;
   },
-  after: function() {
-    active = null;
+  after: function () {
+    set ++;
   }
+}
+
+var key = process.addAsyncListener(onAsync0, asyncNoHandleError);
+
+process.removeAsyncListener(key);
+  
+var set = 0;
+setImmediate(function () {
+  1;
+});
+
+process.on('exit', function () {
+  
+  // the async handler should never be called
+  assert.equal(set, 0);
+  
+  console.log('ok');
 });
 
 
-process.nextTick(function() {
-  assert.equal(active, 1);
-  process.nextTick(function() {
-    assert.equal(active, 3);
-  });
-});
-
-
-process.nextTick(function() {
-  assert.equal(active, 2);
-  process.nextTick(function() {
-    assert.equal(active, 4);
-  });
-});
