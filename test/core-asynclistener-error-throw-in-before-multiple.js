@@ -26,6 +26,7 @@ var assert = require('assert');
 
 var once = 0;
 function onAsync0() {}
+function onAsync1() {}
 
 var results = [];
 var handlers = {
@@ -34,19 +35,40 @@ var handlers = {
   },
   error: function (stor, err) {
     
-    // error handler must be called exactly *once*
+    // must catch error thrown in before
+    assert.equal(err,1);
+    
     once++;
     
     return true;
   }
 }
 
-var key = process.addAsyncListener(onAsync0, handlers);
+var handlers1 = {
+  before: function () {
+    throw 2;
+  },
+  error: function (stor, err) {
+    
+    // must catch *other* handlers throw error
+    assert.equal(err,1);
+    
+    once++;
+    
+    return true;
+  }
+}
+
+var keys = [
+  process.addAsyncListener(onAsync0, handlers),
+  process.addAsyncListener(onAsync1, handlers1)
+];
 
 process.on('uncaughtException', function (err) {
-  // process should propagate error regardless of 
-  // error handlers return value
-  assert.equal(once, 1);
+  
+  // both error handlers must fire
+  assert.equal(once, 2);
+  
   console.log('ok');
 });
 
@@ -54,4 +76,7 @@ setImmediate(function () {
   1
 });
 
-process.removeAsyncListener(key);
+keys.forEach(function (key) {
+  process.removeAsyncListener(key);
+});
+

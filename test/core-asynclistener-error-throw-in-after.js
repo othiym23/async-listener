@@ -23,33 +23,35 @@
 if (!process.addAsyncListener) require('../index.js');
 
 var assert = require('assert');
-var active = null;
-var cntr = 0;
 
+var once = 0;
+function onAsync0() {}
 
-process.addAsyncListener(function() {
-  return { val: ++cntr };
-}, {
-  before: function(context, domain) {
-    active = domain.val;
+var results = [];
+var handlers = {
+  after: function () {
+    throw 1;
   },
-  after: function() {
-    active = null;
+  error: function (stor, err) {
+    
+    // error handler must be called exactly *once*
+    once++;
+    
+    return true;
   }
+}
+
+var key = process.addAsyncListener(onAsync0, handlers);
+
+process.on('uncaughtException', function (err) {
+  // process should propagate error regardless of 
+  // error handlers return value
+  assert.equal(once, 1);
+  console.log('ok');
 });
 
-
-process.nextTick(function() {
-  assert.equal(active, 1);
-  process.nextTick(function() {
-    assert.equal(active, 3);
-  });
+setImmediate(function () {
+  1
 });
 
-
-process.nextTick(function() {
-  assert.equal(active, 2);
-  process.nextTick(function() {
-    assert.equal(active, 4);
-  });
-});
+process.removeAsyncListener(key);

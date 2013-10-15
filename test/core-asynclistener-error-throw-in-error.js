@@ -34,7 +34,7 @@ if (cluster.isMaster) {
   cluster.on('exit', function(worker, code, signal) {
     
     // verify child exited because of throw from 'error'
-    assert.equal(code, 7);
+    assert.equal(code, 2);
     
     console.log('ok');
   });
@@ -51,7 +51,7 @@ if (cluster.isMaster) {
       // the error handler should not be called again
       if(once++ === 0) process.exit(2);
       
-      throw 2;
+      throw new Error('error handler');
     }
   }
 
@@ -66,7 +66,7 @@ if (cluster.isMaster) {
   });
   
   setImmediate(function () {
-    throw 1;
+    throw new Error('setImmediate');
   });
 
   process.removeAsyncListener(key);

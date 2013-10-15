@@ -44,6 +44,12 @@ var errorValues;
 var listenerStack = [];
 
 /**
+ * If one of the listeners is throwing, its exception is kept here
+ * this can occur in before/after
+ */
+var listenerThrowing = null;
+
+/**
  * The error handler on a listener can capture errors thrown during synchronous
  * execution immediately after the listener is added. To capture both
  * synchronous and asynchronous errors, the error handler just uses the
@@ -77,7 +83,7 @@ function asyncCatcher(er) {
   if (listenerStack.length > 0) listeners = listenerStack.pop();
   errorValues = undefined;
 
-  return handled && !inAsyncTick;
+  return handled && !inAsyncTick && !listenerThrowing;
 }
 
 // 0.9+
@@ -155,9 +161,14 @@ function asyncWrap(original, list, length) {
      * before handlers
      */
     inAsyncTick = true;
-    for (var i = 0; i < length; ++i) {
-      var before = list[i].callbacks && list[i].callbacks.before;
-      if (typeof before === 'function') before(this, values[i]);
+    try {
+      for (var i = 0; i < length; ++i) {
+        var before = list[i].callbacks && list[i].callbacks.before;
+        if (typeof before === 'function') before(this, values[i]);
+      }
+    }
+    catch (er) {
+      listenerThrowing = er;
     }
     inAsyncTick = false;
 
@@ -174,23 +185,33 @@ function asyncWrap(original, list, length) {
      */
     listeners = union(list, length, listeners, listeners.length);
 
+    if(listenerThrowing) throw listenerThrowing;
+    
     // save the return value to pass to the after callbacks
     var returned = original.apply(this, arguments);
-
-    // back to the previous listener list on the stack
-    listeners = listenerStack.pop();
-    errorValues = undefined;
 
     /*
      * after handlers (not run if original throws)
      */
     inAsyncTick = true;
-    for (i = 0; i < length; ++i) {
-      var after = list[i].callbacks && list[i].callbacks.after;
-      if (typeof after === 'function') after(this, values[i], returned);
+    try {
+      for (i = 0; i < length; ++i) {
+        var after = list[i].callbacks && list[i].callbacks.after;
+        if (typeof after === 'function') after(this, values[i], returned);
+      }
+    }
+    catch (er)
+    {
+      listenerThrowing = er || true;
     }
     inAsyncTick = false;
-
+    
+    if(listenerThrowing) throw listenerThrowing;
+    
+    // back to the previous listener list on the stack
+    listeners = listenerStack.pop();
+    errorValues = undefined;
+    
     return returned;
   };
 }
