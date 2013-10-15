@@ -147,15 +147,6 @@ if (process._fatalException) {
      * async method like this does).
      */
     return function () {
-      /*
-       * before handlers
-       */
-      inAsyncTick = true;
-      for (var i = 0; i < length; ++i) {
-        var before = list[i].callbacks && list[i].callbacks.before;
-        if (typeof before === 'function') before(this, values[i]);
-      }
-      inAsyncTick = false;
 
       // put the current values where the catcher can see them
       errorValues = values;
@@ -170,12 +161,18 @@ if (process._fatalException) {
        */
       listeners = union(list, length, listeners, listeners.length);
 
+      /*
+       * before handlers
+       */
+      inAsyncTick = true;
+      for (var i = 0; i < length; ++i) {
+        var before = list[i].callbacks && list[i].callbacks.before;
+        if (typeof before === 'function') before(this, values[i]);
+      }
+      inAsyncTick = false;
+
       // save the return value to pass to the after callbacks
       var returned = original.apply(this, arguments);
-
-      // back to the previous listener list on the stack
-      listeners = listenerStack.pop();
-      errorValues = undefined;
 
       /*
        * after handlers (not run if original throws)
@@ -186,6 +183,10 @@ if (process._fatalException) {
         if (typeof after === 'function') after(this, values[i], returned);
       }
       inAsyncTick = false;
+
+      // back to the previous listener list on the stack
+      listeners = listenerStack.pop();
+      errorValues = undefined;
 
       return returned;
     };
