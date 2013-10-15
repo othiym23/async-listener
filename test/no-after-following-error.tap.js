@@ -1,5 +1,7 @@
 var test = require('tap').test;
 
+if (!global.setImmediate) global.setImmediate = setTimeout;
+
 test("after handler not run on throw", function (t) {
   t.plan(2);
 

@@ -2,6 +2,8 @@ var test   = require('tap').test
   , assert = require('assert')
   ;
 
+if (!global.setImmediate) global.setImmediate = setTimeout;
+
 /**
  *
  *

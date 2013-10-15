@@ -1,5 +1,7 @@
 var test = require('tap').test;
 
+if (!global.setImmediate) global.setImmediate = setTimeout;
+
 test("asyncListeners work as expected with process.nextTick", function (t) {
   t.plan(1);
 
