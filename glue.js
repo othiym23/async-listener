@@ -173,6 +173,16 @@ if (process._fatalException) {
       }
       inAsyncTick = false;
 
+      /*
+       * before handlers
+       */
+      inAsyncTick = true;
+      for (var i = 0; i < length; ++i) {
+        var before = list[i].callbacks && list[i].callbacks.before;
+        if (typeof before === 'function') before(this, values[i]);
+      }
+      inAsyncTick = false;
+
       // save the return value to pass to the after callbacks
       var returned = original.apply(this, arguments);
 
