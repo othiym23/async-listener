@@ -21,22 +21,6 @@ var uid = 0;
 var inAsyncTick = false;
 
 /**
- * Error handlers on listeners can throw, the the catcher needs to be able to
- * discriminate between exceptions thrown by user code, and exceptions coming
- * from within the catcher itself. Use a global to keep track of which state
- * the catcher is currently in.
- */
-var inErrorTick = false;
-
-/**
- * Throwing always happens synchronously. If the current array of values for
- * the current list of asyncListeners is put in a module-scoped variable right
- * before a call that can throw, it will always be correct when the error
- * handlers are run.
- */
-var errorValues;
-
-/**
  * Because asynchronous contexts can be nested, and errors can come from anywhere
  * in the stack, a little extra work is required to keep track of where in the
  * nesting we are. Because JS arrays are frequently mutated in place
@@ -51,56 +35,21 @@ var listenerStack = [];
  * listener list is correct by using a stack of listener lists during
  * asynchronous execution.
  */
-function asyncCatcher(er) {
-  var length = listeners.length;
-  if (inErrorTick || length === 0) return false;
+var asyncCatcher;
 
-  var handled = false;
-
-  /*
-   * error handlers
-   */
-  inErrorTick = true;
-  for (var i = 0; i < length; ++i) {
-    if (!listeners[i].callbacks) continue;
-
-    var error = listeners[i].callbacks.error;
-    var value = errorValues && errorValues[i];
-    if (typeof error === 'function') handled = error(value, er) || handled;
-  }
-  inErrorTick = false;
-
-  /* Test whether there are any listener arrays on the stack. In the case of
-   * synchronous throws when the listener is active, there may have been
-   * none pushed yet.
-   */
-  if (listenerStack.length > 0) listeners = listenerStack.pop();
-  errorValues = undefined;
-
-  return handled && !inAsyncTick;
-}
-
-// 0.9+
-if (process._fatalException) {
-  wrap(process, '_fatalException', function (_fatalException) {
-    return function _asyncFatalException(er) {
-      return asyncCatcher(er) || _fatalException(er);
-    };
-  });
-}
-// 0.8 and below
-else {
-  // will be the first to fire if async-listener is the first module loaded
-  process.on('uncaughtException', function _asyncUncaughtException(er) {
-    return asyncCatcher(er) || false;
-  });
-}
+/**
+ * The guts of the system -- called each time an asynchronous event happens
+ * while one or more listeners are active.
+ */
+var asyncWrap;
 
 /**
  * Simple helper function that's probably faster than using Array
  * filter methods and can be inlined.
  */
-function union(dest, destLength, added, addedLength) {
+function union(dest, added) {
+  var destLength = dest.length;
+  var addedLength = added.length;
   var returned = [];
 
   if (destLength === 0 && addedLength === 0) return returned;
@@ -122,77 +71,276 @@ function union(dest, destLength, added, addedLength) {
 
   return returned;
 }
-/**
- * The guts of the system -- called each time an asynchronous event happens
- * while one or more listeners are active.
+
+/*
+ * For performance, split error-handlers and asyncCatcher up into two separate
+ * code paths.
  */
-function asyncWrap(original, list, length) {
-  var values = [];
 
-  /*
-   * listeners
+// 0.9+
+if (process._fatalException) {
+  /**
+   * Error handlers on listeners can throw, the the catcher needs to be able to
+   * discriminate between exceptions thrown by user code, and exceptions coming
+   * from within the catcher itself. Use a global to keep track of which state
+   * the catcher is currently in.
    */
-  inAsyncTick = true;
-  for (var i = 0; i < length; ++i) {
-    /* asyncListener.domain is the default value passed through before and
-     * after if the listener doesn't return a value.
-     */
-    values[i] = list[i].domain;
-    var value = list[i].listener.call(this);
-    if (typeof value !== 'undefined') values[i] = value;
-  }
-  inAsyncTick = false;
+  var inErrorTick = false;
 
-  /* One of the main differences between this polyfill and the core
-   * asyncListener support is that core avoids creating closures by putting a
-   * lot of the state managemnt on the C++ side of Node (and of course also it
-   * bakes support for async listeners into the Node C++ API through the
-   * AsyncWrap class, which means that it doesn't monkeypatch basically every
-   * async method like this does).
+  /**
+   * Throwing always happens synchronously. If the current array of values for
+   * the current list of asyncListeners is put in a module-scoped variable right
+   * before a call that can throw, it will always be correct when the error
+   * handlers are run.
    */
-  return function () {
+  var errorValues;
+
+  asyncCatcher = function asyncCatcher(er) {
+    var length = listeners.length;
+    if (inErrorTick || length === 0) return false;
+
+    var handled = false;
+
     /*
-     * before handlers
+     * error handlers
+     */
+    inErrorTick = true;
+    for (var i = 0; i < length; ++i) {
+      if (!listeners[i].callbacks) continue;
+
+      var error = listeners[i].callbacks.error;
+      var value = errorValues && errorValues[i];
+      if (typeof error === 'function') handled = error(value, er) || handled;
+    }
+    inErrorTick = false;
+
+    /* Test whether there are any listener arrays on the stack. In the case of
+     * synchronous throws when the listener is active, there may have been
+     * none pushed yet.
+     */
+    if (listenerStack.length > 0) listeners = listenerStack.pop();
+    errorValues = undefined;
+
+    return handled && !inAsyncTick;
+  };
+
+  asyncWrap = function asyncWrap(original, list, length) {
+    var values = [];
+
+    /*
+     * listeners
      */
     inAsyncTick = true;
     for (var i = 0; i < length; ++i) {
-      var before = list[i].callbacks && list[i].callbacks.before;
-      if (typeof before === 'function') before(this, values[i]);
+      /* asyncListener.domain is the default value passed through before and
+       * after if the listener doesn't return a value.
+       */
+      values[i] = list[i].domain;
+      var value = list[i].listener.call(this);
+      if (typeof value !== 'undefined') values[i] = value;
     }
     inAsyncTick = false;
 
-    // put the current values where the catcher can see them
-    errorValues = values;
-
-    /* More than one listener can end up inside these closures, so save the
-     * current listeners on a stack.
+    /* One of the main differences between this polyfill and the core
+     * asyncListener support is that core avoids creating closures by putting a
+     * lot of the state managemnt on the C++ side of Node (and of course also it
+     * bakes support for async listeners into the Node C++ API through the
+     * AsyncWrap class, which means that it doesn't monkeypatch basically every
+     * async method like this does).
      */
-    listenerStack.push(listeners);
+    return function () {
 
-    /* Activate both the listeners that were active when the closure was
-     * created and the listeners that were previously active.
-     */
-    listeners = union(list, length, listeners, listeners.length);
+      // put the current values where the catcher can see them
+      errorValues = values;
 
-    // save the return value to pass to the after callbacks
-    var returned = original.apply(this, arguments);
+      /* More than one listener can end up inside these closures, so save the
+       * current listeners on a stack.
+       */
+      listenerStack.push(listeners);
 
-    // back to the previous listener list on the stack
-    listeners = listenerStack.pop();
-    errorValues = undefined;
+      /* Activate both the listeners that were active when the closure was
+       * created and the listeners that were previously active.
+       */
+      listeners = union(list, listeners);
+
+      /*
+       * before handlers
+       */
+      inAsyncTick = true;
+      for (var i = 0; i < length; ++i) {
+        var before = list[i].callbacks && list[i].callbacks.before;
+        if (typeof before === 'function') before(this, values[i]);
+      }
+      inAsyncTick = false;
+
+      // save the return value to pass to the after callbacks
+      var returned = original.apply(this, arguments);
+
+      /*
+       * after handlers (not run if original throws)
+       */
+      inAsyncTick = true;
+      for (i = 0; i < length; ++i) {
+        var after = list[i].callbacks && list[i].callbacks.after;
+        if (typeof after === 'function') after(this, values[i], returned);
+      }
+      inAsyncTick = false;
+
+      // back to the previous listener list on the stack
+      listeners = listenerStack.pop();
+      errorValues = undefined;
+
+      return returned;
+    };
+  };
+
+  wrap(process, '_fatalException', function (_fatalException) {
+    return function _asyncFatalException(er) {
+      return asyncCatcher(er) || _fatalException(er);
+    };
+  });
+}
+// 0.8 and below
+else {
+  /**
+   * The error handler in the error-checker for old Node must rethrow to give
+   * domains and other uncaughtException handlers a chance to fire, but there's
+   * nothing for the uncaughtException handler to do.
+   */
+  var threw = false;
+
+  /**
+   * If an error handler in asyncWrap throws, the process must die. Under 0.8
+   * and earlier the only way to put a bullet through the head of the process
+   * is to rethrow from inside the exception handler, so rethrow and set
+   * errorThrew to tell the uncaughtHandler what to do.
+   */
+  var errorThrew = false;
+
+  /**
+   * Under Node 0.8, this handler *only* handles synchronously thrown errors.
+   * This simplifies it, which almost but not quite makes up for the hit taken
+   * by putting everything in a try-catch.
+   */
+  asyncCatcher = function uncaughtCatcher(er) {
+    if (threw) {
+      threw = false;
+      return;
+    }
+
+    // going down hard
+    if (errorThrew) throw er;
+
+    var handled = false;
 
     /*
-     * after handlers (not run if original throws)
+     * error handlers
+     */
+    var length = listeners.length;
+    for (var i = 0; i < length; ++i) {
+      var error = listeners[i].callbacks && listeners[i].callbacks.error;
+      if (typeof error === 'function') handled = error(undefined, er) || handled;
+    }
+
+    /* Rethrow if one of the before / after handlers fire, which will bring the
+     * process down immediately.
+     */
+    if (!handled && inAsyncTick) throw er;
+  };
+
+  asyncWrap = function asyncWrap(original, list, length) {
+    var values = [];
+
+    /*
+     * listeners
      */
     inAsyncTick = true;
-    for (i = 0; i < length; ++i) {
-      var after = list[i].callbacks && list[i].callbacks.after;
-      if (typeof after === 'function') after(this, values[i], returned);
+    for (var i = 0; i < length; ++i) {
+      /* asyncListener.domain is the default value passed through before and
+       * after if the listener doesn't return a value.
+       */
+      values[i] = list[i].domain;
+      var value = list[i].listener.call(this);
+      if (typeof value !== 'undefined') values[i] = value;
     }
     inAsyncTick = false;
 
-    return returned;
+    /* One of the main differences between this polyfill and the core
+     * asyncListener support is that core avoids creating closures by putting a
+     * lot of the state managemnt on the C++ side of Node (and of course also it
+     * bakes support for async listeners into the Node C++ API through the
+     * AsyncWrap class, which means that it doesn't monkeypatch basically every
+     * async method like this does).
+     */
+    return function () {
+      /* More than one listener can end up inside these closures, so save the
+       * current listeners on a stack.
+       */
+      listenerStack.push(listeners);
+
+      /* Activate both the listeners that were active when the closure was
+       * created and the listeners that were previously active.
+       */
+      listeners = union(list, listeners);
+
+      /*
+       * before handlers
+       */
+      inAsyncTick = true;
+      for (var i = 0; i < length; ++i) {
+        var before = list[i].callbacks && list[i].callbacks.before;
+        if (typeof before === 'function') before(this, values[i]);
+      }
+      inAsyncTick = false;
+
+      // save the return value to pass to the after callbacks
+      var returned;
+      try {
+        returned = original.apply(this, arguments);
+      }
+      catch (er) {
+        var handled = false;
+        for (var i = 0; i < length; ++i) {
+          var error = listeners[i].callbacks.error;
+          if (typeof error === 'function') {
+            try {
+              handled = error(values[i], er) || handled;
+            }
+            catch (x) {
+              errorThrew = true;
+              throw x;
+            }
+          }
+        }
+
+        // back to the previous listener list on the stack
+        listeners = listenerStack.pop();
+
+        if (handled) return;
+
+        threw = true;
+        throw er;
+      }
+
+      /*
+       * after handlers (not run if original throws)
+       */
+      inAsyncTick = true;
+      for (i = 0; i < length; ++i) {
+        var after = list[i].callbacks && list[i].callbacks.after;
+        if (typeof after === 'function') after(this, values[i], returned);
+      }
+      inAsyncTick = false;
+
+      // back to the previous listener list on the stack
+      listeners = listenerStack.pop();
+
+      return returned;
+    };
   };
+
+  // will be the first to fire if async-listener is the first module loaded
+  process.on('uncaughtException', asyncCatcher);
 }
 
 // for performance in the case where there are no handlers, just the listener
@@ -205,7 +353,7 @@ function simpleWrap(original, list, length) {
   // of the listeners active at their creation
   return function () {
     listenerStack.push(listeners);
-    listeners = union(list, length, listeners, listeners.length);
+    listeners = union(list, listeners);
 
     var returned = original.apply(this, arguments);
 
