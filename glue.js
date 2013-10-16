@@ -47,7 +47,9 @@ var asyncWrap;
  * Simple helper function that's probably faster than using Array
  * filter methods and can be inlined.
  */
-function union(dest, destLength, added, addedLength) {
+function union(dest, added) {
+  var destLength = dest.length;
+  var addedLength = added.length;
   var returned = [];
 
   if (destLength === 0 && addedLength === 0) return returned;
@@ -147,15 +149,6 @@ if (process._fatalException) {
      * async method like this does).
      */
     return function () {
-      /*
-       * before handlers
-       */
-      inAsyncTick = true;
-      for (var i = 0; i < length; ++i) {
-        var before = list[i].callbacks && list[i].callbacks.before;
-        if (typeof before === 'function') before(this, values[i]);
-      }
-      inAsyncTick = false;
 
       // put the current values where the catcher can see them
       errorValues = values;
@@ -168,14 +161,20 @@ if (process._fatalException) {
       /* Activate both the listeners that were active when the closure was
        * created and the listeners that were previously active.
        */
-      listeners = union(list, length, listeners, listeners.length);
+      listeners = union(list, listeners);
+
+      /*
+       * before handlers
+       */
+      inAsyncTick = true;
+      for (var i = 0; i < length; ++i) {
+        var before = list[i].callbacks && list[i].callbacks.before;
+        if (typeof before === 'function') before(this, values[i]);
+      }
+      inAsyncTick = false;
 
       // save the return value to pass to the after callbacks
       var returned = original.apply(this, arguments);
-
-      // back to the previous listener list on the stack
-      listeners = listenerStack.pop();
-      errorValues = undefined;
 
       /*
        * after handlers (not run if original throws)
@@ -186,6 +185,10 @@ if (process._fatalException) {
         if (typeof after === 'function') after(this, values[i], returned);
       }
       inAsyncTick = false;
+
+      // back to the previous listener list on the stack
+      listeners = listenerStack.pop();
+      errorValues = undefined;
 
       return returned;
     };
@@ -207,6 +210,14 @@ else {
   var threw = false;
 
   /**
+   * If an error handler in asyncWrap throws, the process must die. Under 0.8
+   * and earlier the only way to put a bullet through the head of the process
+   * is to rethrow from inside the exception handler, so rethrow and set
+   * errorThrew to tell the uncaughtHandler what to do.
+   */
+  var errorThrew = false;
+
+  /**
    * Under Node 0.8, this handler *only* handles synchronously thrown errors.
    * This simplifies it, which almost but not quite makes up for the hit taken
    * by putting everything in a try-catch.
@@ -217,6 +228,9 @@ else {
       return;
     }
 
+    // going down hard
+    if (errorThrew) throw er;
+
     var handled = false;
 
     /*
@@ -225,9 +239,7 @@ else {
     var length = listeners.length;
     for (var i = 0; i < length; ++i) {
       var error = listeners[i].callbacks && listeners[i].callbacks.error;
-      try {
-        if (typeof error === 'function') handled = error(undefined, er) || handled;
-      } catch (x) { /* nope */ }
+      if (typeof error === 'function') handled = error(undefined, er) || handled;
     }
 
     /* Rethrow if one of the before / after handlers fire, which will bring the
@@ -261,6 +273,16 @@ else {
      * async method like this does).
      */
     return function () {
+      /* More than one listener can end up inside these closures, so save the
+       * current listeners on a stack.
+       */
+      listenerStack.push(listeners);
+
+      /* Activate both the listeners that were active when the closure was
+       * created and the listeners that were previously active.
+       */
+      listeners = union(list, listeners);
+
       /*
        * before handlers
        */
@@ -270,16 +292,6 @@ else {
         if (typeof before === 'function') before(this, values[i]);
       }
       inAsyncTick = false;
-
-      /* More than one listener can end up inside these closures, so save the
-       * current listeners on a stack.
-       */
-      listenerStack.push(listeners);
-
-      /* Activate both the listeners that were active when the closure was
-       * created and the listeners that were previously active.
-       */
-      listeners = union(list, length, listeners, listeners.length);
 
       // save the return value to pass to the after callbacks
       var returned;
@@ -294,7 +306,10 @@ else {
             try {
               handled = error(values[i], er) || handled;
             }
-            catch (x) { /* nope */ }
+            catch (x) {
+              errorThrew = true;
+              throw x;
+            }
           }
         }
 
@@ -307,9 +322,6 @@ else {
         throw er;
       }
 
-      // back to the previous listener list on the stack
-      listeners = listenerStack.pop();
-
       /*
        * after handlers (not run if original throws)
        */
@@ -319,6 +331,9 @@ else {
         if (typeof after === 'function') after(this, values[i], returned);
       }
       inAsyncTick = false;
+
+      // back to the previous listener list on the stack
+      listeners = listenerStack.pop();
 
       return returned;
     };
@@ -338,7 +353,7 @@ function simpleWrap(original, list, length) {
   // of the listeners active at their creation
   return function () {
     listenerStack.push(listeners);
-    listeners = union(list, length, listeners, listeners.length);
+    listeners = union(list, listeners);
 
     var returned = original.apply(this, arguments);
 
