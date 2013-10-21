@@ -3,7 +3,7 @@
 This is an implementation of Trevor Norris's
 process.{addAsyncListener,removeAsyncListener} API for adding behavior to async
 calls. You can see his implementation (currently a work in progress) on
-[Node.js core pull request #5011](https://github.com/joyent/node/pull/6011).
+[Node.js core pull request #6011](https://github.com/joyent/node/pull/6011).
 This polyfill / shim is intended for use in versions of Node prior to whatever
 version of Node in which Trevor's changes finally land (anticipated at the time of
 this writing as 0.11.7).
