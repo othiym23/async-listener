@@ -1,3 +1,5 @@
+[![NPM](https://nodei.co/npm/async-listener.png?downloads=true&stars=true)](https://nodei.co/npm/async-listener/)
+
 # process.addAsyncListener polyfill
 
 This is an implementation of Trevor Norris's
