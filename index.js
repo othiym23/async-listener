@@ -30,6 +30,35 @@ function activatorFirst(fn) {
 }
 
 var net = require('net');
+
+// a polyfill in our polyfill etc so forth -- taken from node master on 2013/10/30
+if (!net._normalizeConnectArgs) {
+  net._normalizeConnectArgs = function (args) {
+    var options = {};
+
+    function toNumber(x) { return (x = Number(x)) >= 0 ? x : false; }
+
+    if (typeof args[0] === 'object' && args[0] !== null) {
+      // connect(options, [cb])
+      options = args[0];
+    }
+    else if (typeof args[0] === 'string' && toNumber(args[0]) === false) {
+      // connect(path, [cb]);
+      options.path = args[0];
+    }
+    else {
+      // connect(port, [host], [cb])
+      options.port = args[0];
+      if (typeof args[1] === 'string') {
+        options.host = args[1];
+      }
+    }
+
+    var cb = args[args.length - 1];
+    return typeof cb === 'function' ? [options, cb] : [options];
+  };
+}
+
 wrap(net.Server.prototype, '_listen2', function (original) {
   return function () {
     this.on('connection', function (socket) {
