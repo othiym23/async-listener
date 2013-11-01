@@ -27,7 +27,7 @@
     "url": "https://github.com/othiym23/async-listener/issues"
   },
   "engines": {
-    "node": "<0.11.7"
+    "node": "<=0.11.8"
   },
   "dependencies": {
     "shimmer": "~0.9"
