@@ -30,7 +30,7 @@
     "node": "<=0.11.8"
   },
   "dependencies": {
-    "shimmer": "~0.9"
+    "shimmer": "~1"
   },
   "devDependencies": {
     "tap": "~0.4.4"
