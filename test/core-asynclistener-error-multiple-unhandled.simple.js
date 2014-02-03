@@ -21,7 +21,6 @@
 
 
 if (!process.addAsyncListener) require('../index.js');
-if (!global.setImmediate) global.setImmediate = setTimeout;
 
 var assert = require('assert');
 
@@ -33,29 +32,49 @@ function onAsync1() {
   return 1;
 }
 
+function onError(stor) {
+  results.push(stor);
+}
+
 var results = [];
-var asyncNoHandleError = {
-  error: function (stor) {
-    results.push(stor);
-  }
+var asyncNoHandleError0 = {
+  create: onAsync0,
+  error: onError
+};
+var asyncNoHandleError1 = {
+  create: onAsync1,
+  error: onError
 };
 
-process.addAsyncListener(onAsync0, asyncNoHandleError);
-process.addAsyncListener(onAsync1, asyncNoHandleError);
+var listeners = [
+  process.addAsyncListener(asyncNoHandleError0),
+  process.addAsyncListener(asyncNoHandleError1)
+];
 
-function expect2Errors() {
+var uncaughtFired = false;
+process.on('uncaughtException', function() {
+  uncaughtFired = true;
 
-  // unhandled errors should propagate to all listeners
+  // Unhandled errors should propagate to all listeners.
   assert.equal(results[0], 0);
   assert.equal(results[1], 1);
   assert.equal(results.length, 2);
+});
 
-  console.log('ok');
-}
-
-process.on('uncaughtException', expect2Errors);
-
-setImmediate(function () {
+process.nextTick(function() {
   throw new Error();
 });
 
+process.on('exit', function(code) {
+  // If the exit code isn't ok then return early to throw the stack that
+  // caused the bad return code.
+  if (code !== 0)
+    return;
+
+  // Need to remove the async listeners or tests will always pass
+  for (var i = 0; i < listeners.length; i++)
+    process.removeAsyncListener(listeners[i]);
+
+  assert.ok(uncaughtFired);
+  console.log('ok');
+});
