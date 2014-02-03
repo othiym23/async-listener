@@ -13,9 +13,9 @@ test("asyncListeners work as expected with process.nextTick", function (t) {
 
   var counter = 1;
   var current;
-  var id = process.addAsyncListener(
-    function listener() { return counter++; },
+  process.addAsyncListener(
     {
+      create : function listener() { return counter++; },
       before : function (_, domain) { current = domain; },
       after  : function () { current = null; }
     }

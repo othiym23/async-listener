@@ -48,8 +48,8 @@ MiniCLS.prototype.run = function (fn) {
 
 var cls = new MiniCLS();
 process.addAsyncListener(
-  function () { return cls.active; },
   {
+    create : function () { return cls.active; },
     before : function (context, domain) { cls.enter(domain); },
     after  : function (context, domain) { cls.exit(domain); },
     error  : function (domain) { if (domain) cls.exit(domain); }

@@ -94,10 +94,8 @@ function create(name) {
 
   var namespace = new Namespace(name);
   namespace.id = process.addAsyncListener(
-    function () {
-      return namespace.active;
-    },
     {
+      create : function () { return namespace.active; },
       before : function (context, domain) { namespace.enter(domain); },
       after  : function (context, domain) { namespace.exit(domain); }
     }

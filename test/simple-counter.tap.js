@@ -10,9 +10,9 @@ test("asyncListeners work as expected with process.nextTick", function (t) {
     ;
 
   process.addAsyncListener(
-    function () { return { val : ++cntr }; },
     {
-      before : function (context, domain) { active = domain.val; },
+      create : function () { return { val : ++cntr }; },
+      before : function (context, data) { active = data.val; },
       after  : function () { active = null; }
     }
   );

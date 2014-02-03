@@ -25,6 +25,9 @@ if (!global.setImmediate) global.setImmediate = setTimeout;
 
 var assert = require('assert');
 
+var active = null;
+var cntr = 0;
+
 function onAsync0() {
   return 0;
 }
@@ -33,34 +36,43 @@ function onAsync1() {
   return 1;
 }
 
+function onError(stor) {
+  results.push(stor);
+  return true;
+}
+
 var results = [];
-var asyncNoHandleError = {
-  error: function (stor) {
-    results.push(stor);
-    return true;
-  }
+var asyncNoHandleError0 = {
+  create: onAsync0,
+  error: onError
+};
+var asyncNoHandleError1 = {
+  create: onAsync1,
+  error: onError
 };
 
 var listeners = [
-  process.addAsyncListener(onAsync0, asyncNoHandleError),
-  process.addAsyncListener(onAsync1, asyncNoHandleError)
+  process.addAsyncListener(asyncNoHandleError0),
+  process.addAsyncListener(asyncNoHandleError1)
 ];
 
-function expect2Errors() {
-
-  // handling of errors should propagate to all listeners
-  assert.equal(results[0], 0);
-  assert.equal(results[1], 1);
-  assert.equal(results.length, 2);
-
-  console.log('ok');
-}
-
-process.on('exit', expect2Errors);
-
-setImmediate(function () {
+process.nextTick(function() {
   throw new Error();
 });
 
 process.removeAsyncListener(listeners[0]);
 process.removeAsyncListener(listeners[1]);
+
+process.on('exit', function(code) {
+  // If the exit code isn't ok then return early to throw the stack that
+  // caused the bad return code.
+  if (code !== 0)
+    return;
+
+  // Handling of errors should propagate to all listeners.
+  assert.equal(results[0], 0);
+  assert.equal(results[1], 1);
+  assert.equal(results.length, 2);
+
+  console.log('ok');
+});

@@ -8,14 +8,10 @@ test("after handler not run on throw", function (t) {
   if (!process.addAsyncListener) require('../index.js');
 
   var key = process.createAsyncListener(
-    function () { return {}; },
     {
-      after : function asyncAfter() {
-        t.fail("after was called");
-      },
-      error : function asyncError(domain) {
-        t.ok(domain, "got error");
-      }
+      create : function () { return {}; },
+      after  : function asyncAfter() { t.fail("after was called"); },
+      error  : function asyncError(domain) { t.ok(domain, "got error"); }
     }
   );
 

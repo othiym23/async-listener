@@ -28,12 +28,19 @@ var assert = require('assert');
 var net = require('net');
 var fs = require('fs');
 var dgram = require('dgram');
+
 var addListener = process.addAsyncListener;
 var removeListener = process.removeAsyncListener;
-
 var actualAsync = 0;
 var expectAsync = 0;
 
+var callbacks = {
+  create: function onAsync() {
+    actualAsync++;
+  }
+};
+
+var listener = process.createAsyncListener(callbacks);
 
 process.on('exit', function() {
   console.log('expected', expectAsync);
@@ -42,17 +49,6 @@ process.on('exit', function() {
   // overflowed then the test would still pass.
   assert.ok(actualAsync >= expectAsync);
 });
-
-
-// --- Begin Testing --- //
-
-function onAsync() {
-  actualAsync++;
-}
-
-
-var listener = process.createAsyncListener(onAsync);
-var listener2 = process.createAsyncListener(onAsync);
 
 
 // Test listeners side-by-side
@@ -132,7 +128,7 @@ process.nextTick(function() {
 // Test triggers with two async listeners
 process.nextTick(function() {
   addListener(listener);
-  addListener(listener2);
+  addListener(listener);
 
   setTimeout(function() {
     process.nextTick(function() { });
@@ -141,7 +137,7 @@ process.nextTick(function() {
   expectAsync += 2;
 
   removeListener(listener);
-  removeListener(listener2);
+  removeListener(listener);
 });
 
 
@@ -193,6 +189,3 @@ process.nextTick(function() {
 
   removeListener(listener);
 });
-
-
-// TODO(trevnorris): Test DNS, Zlib, etc.

@@ -10,8 +10,8 @@ test("async listener lifecycle", function (t) {
   t.ok(process.createAsyncListener, "can create async listeners");
   var counted = 0;
   var listener = process.createAsyncListener(
-    function () { counted++; },
     {
+      create : function () { counted++; },
       before : function () {},
       after  : function () {},
       error  : function () {}

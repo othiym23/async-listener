@@ -1,5 +1,15 @@
 var wrap = require('shimmer').wrap;
 
+/*
+ *
+ * CONSTANTS
+ *
+ */
+var HAS_CREATE_AL = 1 << 0;
+var HAS_BEFORE_AL = 1 << 1;
+var HAS_AFTER_AL = 1 << 2;
+var HAS_ERROR_AL = 1 << 3;
+
 /**
  * There is one list of currently active listeners that is mutated in place by
  * addAsyncListener and removeAsyncListener. This complicates error-handling,
@@ -106,11 +116,11 @@ if (process._fatalException) {
      */
     inErrorTick = true;
     for (var i = 0; i < length; ++i) {
-      if (!listeners[i].callbacks) continue;
+      var listener = listeners[i];
+      if ((listener.flags & HAS_ERROR_AL) === 0) continue;
 
-      var error = listeners[i].callbacks.error;
-      var value = errorValues && errorValues[i];
-      if (typeof error === 'function') handled = error(value, er) || handled;
+      var value = errorValues && errorValues[listener.uid];
+      handled = listener.error(value, er) || handled;
     }
     inErrorTick = false;
 
@@ -132,12 +142,13 @@ if (process._fatalException) {
      */
     inAsyncTick = true;
     for (var i = 0; i < length; ++i) {
-      /* asyncListener.domain is the default value passed through before and
-       * after if the listener doesn't return a value.
-       */
-      values[i] = list[i].domain;
-      var value = list[i].listener.call(this);
-      if (typeof value !== 'undefined') values[i] = value;
+      var listener = list[i];
+      values[listener.uid] = listener.data;
+
+      if ((listener.flags & HAS_CREATE_AL) === 0) continue;
+
+      var value = listener.create(listener.data);
+      if (value !== undefined) values[listener.uid] = value;
     }
     inAsyncTick = false;
 
@@ -149,7 +160,6 @@ if (process._fatalException) {
      * async method like this does).
      */
     return function () {
-
       // put the current values where the catcher can see them
       errorValues = values;
 
@@ -168,8 +178,9 @@ if (process._fatalException) {
        */
       inAsyncTick = true;
       for (var i = 0; i < length; ++i) {
-        var before = list[i].callbacks && list[i].callbacks.before;
-        if (typeof before === 'function') before(this, values[i]);
+        if ((list[i].flags & HAS_BEFORE_AL) > 0) {
+          list[i].before(this, values[list[i].uid]);
+        }
       }
       inAsyncTick = false;
 
@@ -181,8 +192,9 @@ if (process._fatalException) {
        */
       inAsyncTick = true;
       for (i = 0; i < length; ++i) {
-        var after = list[i].callbacks && list[i].callbacks.after;
-        if (typeof after === 'function') after(this, values[i], returned);
+        if ((list[i].flags & HAS_AFTER_AL) > 0) {
+          list[i].after(this, values[list[i].uid]);
+        }
       }
       inAsyncTick = false;
 
@@ -226,8 +238,9 @@ else {
      */
     var length = listeners.length;
     for (var i = 0; i < length; ++i) {
-      var error = listeners[i].callbacks && listeners[i].callbacks.error;
-      if (typeof error === 'function') handled = error(undefined, er) || handled;
+      var listener = listeners[i];
+      if ((listener.flags & HAS_ERROR_AL) === 0) continue;
+      handled = listener.error(null, er) || handled;
     }
 
     /* Rethrow if one of the before / after handlers fire, which will bring the
@@ -244,12 +257,13 @@ else {
      */
     inAsyncTick = true;
     for (var i = 0; i < length; ++i) {
-      /* asyncListener.domain is the default value passed through before and
-       * after if the listener doesn't return a value.
-       */
-      values[i] = list[i].domain;
-      var value = list[i].listener.call(this);
-      if (typeof value !== 'undefined') values[i] = value;
+      var listener = list[i];
+      values[listener.uid] = listener.data;
+
+      if ((listener.flags & HAS_CREATE_AL) === 0) continue;
+
+      var value = listener.create(listener.data);
+      if (value !== undefined) values[listener.uid] = value;
     }
     inAsyncTick = false;
 
@@ -284,8 +298,9 @@ else {
        */
       inAsyncTick = true;
       for (var i = 0; i < length; ++i) {
-        var before = list[i].callbacks && list[i].callbacks.before;
-        if (typeof before === 'function') before(this, values[i]);
+        if ((list[i].flags & HAS_BEFORE_AL) > 0) {
+          list[i].before(this, values[list[i].uid]);
+        }
       }
       inAsyncTick = false;
 
@@ -297,15 +312,13 @@ else {
       catch (er) {
         threw = true;
         for (var i = 0; i < length; ++i) {
-          var error = listeners[i].callbacks.error;
-          if (typeof error === 'function') {
-            try {
-              handled = error(values[i], er) || handled;
-            }
-            catch (x) {
-              errorThrew = true;
-              throw x;
-            }
+          if ((listeners[i].flags & HAS_ERROR_AL) > 0) continue;
+          try {
+            handled = listeners[i].error(values[list[i].uid], er) || handled;
+          }
+          catch (x) {
+            errorThrew = true;
+            throw x;
           }
         }
 
@@ -326,8 +339,9 @@ else {
         if (!threw || handled) {
           inAsyncTick = true;
           for (i = 0; i < length; ++i) {
-            var after = list[i].callbacks && list[i].callbacks.after;
-            if (typeof after === 'function') after(this, values[i], returned);
+            if ((list[i].flags & HAS_AFTER_AL) > 0) {
+              list[i].after(this, values[list[i].uid]);
+            }
           }
           inAsyncTick = false;
         }
@@ -348,7 +362,10 @@ else {
 // for performance in the case where there are no handlers, just the listener
 function simpleWrap(original, list, length) {
   inAsyncTick = true;
-  for (var i = 0; i < length; ++i) list[i].listener();
+  for (var i = 0; i < length; ++i) {
+    var listener = list[i];
+    if (listener.create) listener.create(listener.data);
+  }
   inAsyncTick = false;
 
   // still need to make sure nested async calls are made in the context
@@ -381,47 +398,83 @@ function wrapCallback(original) {
   var list = listeners.slice();
 
   for (var i = 0; i < length; ++i) {
-    if (list[i].callbacks) return asyncWrap(original, list, length);
+    if (list[i].flags > 0) return asyncWrap(original, list, length);
   }
 
   return simpleWrap(original, list, length);
 }
 
-function createAsyncListener(listener, callbacks, value) {
-  return {
-    listener  : listener,
-    callbacks : callbacks,
-    domain    : value,
-    uid       : uid++
-  };
-}
+function AsyncListener(callbacks, data) {
+  if (typeof callbacks.create === 'function') {
+    this.create = callbacks.create;
+    this.flags |= HAS_CREATE_AL;
+  }
 
-function addAsyncListener(listener, callbacks, value) {
-  var asyncListener;
-  if (typeof listener === 'function') {
-    asyncListener = createAsyncListener(listener, callbacks, value);
+  if (typeof callbacks.before === 'function') {
+    this.before = callbacks.before;
+    this.flags |= HAS_BEFORE_AL;
+  }
+
+  if (typeof callbacks.after === 'function') {
+    this.after = callbacks.after;
+    this.flags |= HAS_AFTER_AL;
+  }
+
+  if (typeof callbacks.error === 'function') {
+    this.error = callbacks.error;
+    this.flags |= HAS_ERROR_AL;
+  }
+
+  this.uid = ++uid;
+  this.data = data === undefined ? null : data;
+}
+AsyncListener.prototype.create = undefined;
+AsyncListener.prototype.before = undefined;
+AsyncListener.prototype.after  = undefined;
+AsyncListener.prototype.error  = undefined;
+AsyncListener.prototype.data   = undefined;
+AsyncListener.prototype.uid    = 0;
+AsyncListener.prototype.flags  = 0;
+
+function createAsyncListener(callbacks, data) {
+  if (typeof callbacks !== 'object' || !callbacks) {
+    throw new TypeError('callbacks argument must be an object');
+  }
+
+  if (callbacks instanceof AsyncListener) {
+    return callbacks;
   }
   else {
-    asyncListener = listener;
+    return new AsyncListener(callbacks, data);
+  }
+}
+
+function addAsyncListener(callbacks, data) {
+  var listener;
+  if (!(callbacks instanceof AsyncListener)) {
+    listener = createAsyncListener(callbacks, data);
+  }
+  else {
+    listener = callbacks;
   }
 
-  // Make sure the asyncListener isn't already in the list.
+  // Make sure the listener isn't already in the list.
   var registered = false;
   for (var i = 0; i < listeners.length; i++) {
-    if (asyncListener.uid === listeners[i].uid) {
+    if (listener === listeners[i]) {
       registered = true;
       break;
     }
   }
 
-  if (!registered) listeners.push(asyncListener);
+  if (!registered) listeners.push(listener);
 
-  return asyncListener;
+  return listener;
 }
 
 function removeAsyncListener(listener) {
   for (var i = 0; i < listeners.length; i++) {
-    if (listener.uid === listeners[i].uid) {
+    if (listener === listeners[i]) {
       listeners.splice(i, 1);
       break;
     }
