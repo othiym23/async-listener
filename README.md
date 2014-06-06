@@ -13,39 +13,35 @@ this writing as 0.11.7).
 Here's his documentation of the intended API, which will probably get cleaned up
 here later:
 
-## createAsyncListener(listener[, callbacks[, storage]])
+## createAsyncListener(callbacks[, initailStorage])
 
-* `listener` {Function}
 * `callbacks` {Object}
-* `storage` {Value}
+* `initailStorage` {Value}
 
 Returns a constructed `AsyncListener` object. Which can then be passed to
 `process.addAsyncListener()` and `process.removeAsyncListener()`. Each
 function parameter is as follows:
 
-* `listener(storage)`: A `Function` called as an asynchronous event is
-queued. If a {Value} is returned then it will be attached to the event as
-`storage` and overwrite any pre-defined value passed to
-`createAsyncListener()`. If a `storage` argument is passed initially then
-it will also be passed to `listener()`.
-* `callbacks`: An `Object` which may contain three optional fields:
-  * `before(context, storage)`: A `Function` that is called immediately
+1. `callbacks`: An `Object` which may contain four optional fields:
+  * `create`: A `function (storage)` that is called when an asynchronous event is
+  queued. Recives the `storage` attached to the listner. `storage` can be created by 
+  passing an `initailStorage` argument during costruction, or by returning a `Value`
+  from `create` which will be attached to the listner and overwrite the `initailStorage`.
+  * `before`: A `function (context, storage)` that is called immediately
   before the asynchronous callback is about to run. It will be passed both
-  the `context` (i.e. `this`) of the calling function and the `storage`
-  either returned from `listener` or passed during construction (if either
-  was done).
-  * `after(context, storage)`: A `Function` called immediately after the
+  the `context` (i.e. `this`) of the calling function and the `storage`.
+  * `after`: A `function (context, storage)` called immediately after the
   asynchronous event's callback is run. Note that if the event's callback
   throws during execution this will not be called.
-  * `error(storage, error)`: A `Function` called if the event's callback
+  * `error`: A `function (storage, error)` called if the event's callback
   threw. If `error` returns `true` then Node will assume the error has
   been properly handled and resume execution normally.
-* `storage`: A `Value` (i.e. anything) that will be, by default, attached
+1. `initailStorage`: A `Value` (i.e. anything) that will be, by default, attached
 to all new event instances. This will be overwritten if a `Value` is
-returned by `listener()`.
+returned by `create()`.
 
 
-## addAsyncListener(listener[, callbacks[, storage]])
+## addAsyncListener(callbacks[, initailStorage])
 ## addAsyncListener(asyncListener)
 
 Returns a constructed `AsyncListener` object and immediately adds it to
