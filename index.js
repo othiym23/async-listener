@@ -1,6 +1,6 @@
 'use strict';
 
-if (process.addAsyncListener) throw new Error("Don't require polyfill unless needed");
+if (process.addAsyncListener) return;
 
 var shimmer      = require('shimmer')
   , wrap         = shimmer.wrap
