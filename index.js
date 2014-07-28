@@ -84,7 +84,9 @@ wrap(net.Socket.prototype, 'connect', function (original) {
     var args = net._normalizeConnectArgs(arguments);
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
-    this._handle.onread = wrapCallback(this._handle.onread);
+    if (this._handle) {
+      this._handle.onread = wrapCallback(this._handle.onread);
+    }
     return result;
   };
 });
