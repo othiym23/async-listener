@@ -3,7 +3,7 @@
 var test = require('tap').test;
 
 test("async listener lifecycle", function (t) {
-  t.plan(8);
+  t.plan(9);
 
   if (!process.addAsyncListener) require('../index.js');
 
@@ -36,4 +36,14 @@ test("async listener lifecycle", function (t) {
   }, "failing remove does not throw");
 
   t.equal(counted, 0, "didn't hit any async functions");
+
+  process.addAsyncListener(listener);
+  setTimeout(function() {
+    process.removeAsyncListener(listener);
+    setTimeout(function() {
+      setTimeout(function() {
+        t.equal(counted, 1, "did not hit listeners after removing");
+      })
+    })
+  })
 });

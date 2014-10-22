@@ -15,7 +15,8 @@ var HAS_ERROR_AL = 1 << 3;
  * addAsyncListener and removeAsyncListener. This complicates error-handling,
  * for reasons that are discussed below.
  */
-var listeners = [];
+var listeners = new Array();
+var errorListeners = new Array();
 
 /**
  * There can be multiple listeners with the same properties, so disambiguate
@@ -35,7 +36,6 @@ var inAsyncTick = false;
  * in the stack, a little extra work is required to keep track of where in the
  * nesting we are. Because JS arrays are frequently mutated in place
  */
-var listenerStack = [];
 
 /**
  * The error handler on a listener can capture errors thrown during synchronous
@@ -52,35 +52,6 @@ var asyncCatcher;
  * while one or more listeners are active.
  */
 var asyncWrap;
-
-/**
- * Simple helper function that's probably faster than using Array
- * filter methods and can be inlined.
- */
-function union(dest, added) {
-  var destLength = dest.length;
-  var addedLength = added.length;
-  var returned = [];
-
-  if (destLength === 0 && addedLength === 0) return returned;
-
-  for (var j  = 0; j < destLength; j++) returned[j] = dest[j];
-
-  if (addedLength === 0) return returned;
-
-  for (var i = 0; i < addedLength; i++) {
-    var missing = true;
-    for (j = 0; j < destLength; j++) {
-      if (dest[j].uid === added[i].uid) {
-        missing = false;
-        break;
-      }
-    }
-    if (missing) returned.push(added[i]);
-  }
-
-  return returned;
-}
 
 /*
  * For performance, split error-handlers and asyncCatcher up into two separate
@@ -106,7 +77,7 @@ if (process._fatalException) {
   var errorValues;
 
   asyncCatcher = function asyncCatcher(er) {
-    var length = listeners.length;
+    var length = errorListeners.length;
     if (inErrorTick || length === 0) return false;
 
     var handled = false;
@@ -116,7 +87,7 @@ if (process._fatalException) {
      */
     inErrorTick = true;
     for (var i = 0; i < length; ++i) {
-      var listener = listeners[i];
+      var listener = errorListeners[i];
       if ((listener.flags & HAS_ERROR_AL) === 0) continue;
 
       var value = errorValues && errorValues[listener.uid];
@@ -128,7 +99,7 @@ if (process._fatalException) {
      * synchronous throws when the listener is active, there may have been
      * none pushed yet.
      */
-    if (listenerStack.length > 0) listeners = listenerStack.pop();
+    listeners = new Array();
     errorValues = undefined;
 
     return handled && !inAsyncTick;
@@ -162,16 +133,12 @@ if (process._fatalException) {
     return function () {
       // put the current values where the catcher can see them
       errorValues = values;
+      errorListeners = list;
 
       /* More than one listener can end up inside these closures, so save the
        * current listeners on a stack.
        */
-      listenerStack.push(listeners);
-
-      /* Activate both the listeners that were active when the closure was
-       * created and the listeners that were previously active.
-       */
-      listeners = union(list, listeners);
+      listeners = list.slice();
 
       /*
        * before handlers
@@ -199,7 +166,7 @@ if (process._fatalException) {
       inAsyncTick = false;
 
       // back to the previous listener list on the stack
-      listeners = listenerStack.pop();
+      listeners = new Array();
       errorValues = undefined;
 
       return returned;
@@ -236,11 +203,14 @@ else {
     /*
      * error handlers
      */
-    var length = listeners.length;
+    var length = errorListeners.length;
+
     for (var i = 0; i < length; ++i) {
-      var listener = listeners[i];
+      var listener = errorListeners[i];
       if ((listener.flags & HAS_ERROR_AL) === 0) continue;
-      handled = listener.error(null, er) || handled;
+
+      var value = errorValues && errorValues[listener.uid];
+      handled = listener.error(value, er) || handled;
     }
 
     /* Rethrow if one of the before / after handlers fire, which will bring the
@@ -286,12 +256,7 @@ else {
       /* More than one listener can end up inside these closures, so save the
        * current listeners on a stack.
        */
-      listenerStack.push(listeners);
-
-      /* Activate both the listeners that were active when the closure was
-       * created and the listeners that were previously active.
-       */
-      listeners = union(list, listeners);
+      listeners = list.slice();
 
       /*
        * before handlers
@@ -312,9 +277,9 @@ else {
       catch (er) {
         threw = true;
         for (var i = 0; i < length; ++i) {
-          if ((listeners[i].flags & HAS_ERROR_AL) > 0) continue;
+          if ((list[i].flags & HAS_ERROR_AL) > 0) continue;
           try {
-            handled = listeners[i].error(values[list[i].uid], er) || handled;
+            handled = list[i].error(values[list[i].uid], er) || handled;
           }
           catch (x) {
             errorThrew = true;
@@ -347,7 +312,7 @@ else {
         }
 
         // back to the previous listener list on the stack
-        listeners = listenerStack.pop();
+        listeners = new Array();
       }
 
 
@@ -371,12 +336,11 @@ function simpleWrap(original, list, length) {
   // still need to make sure nested async calls are made in the context
   // of the listeners active at their creation
   return function () {
-    listenerStack.push(listeners);
-    listeners = union(list, listeners);
+    listeners = list;
 
     var returned = original.apply(this, arguments);
 
-    listeners = listenerStack.pop();
+    listeners = new Array();
 
     return returned;
   };
@@ -395,10 +359,10 @@ function wrapCallback(original) {
   if (length === 0) return original;
 
   // capture the active listeners as of when the wrapped function was called
-  var list = listeners.slice();
+  var list = listeners ? listeners.slice() : new Array();
 
   for (var i = 0; i < length; ++i) {
-    if (list[i].flags > 0) return asyncWrap(original, list, length);
+    if (listeners[i].flags > 1) return asyncWrap(original, list, length);
   }
 
   return simpleWrap(original, list, length);
