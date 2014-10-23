@@ -1,5 +1,4 @@
 var wrap = require('shimmer').wrap;
-
 /*
  *
  * CONSTANTS
@@ -15,8 +14,8 @@ var HAS_ERROR_AL = 1 << 3;
  * addAsyncListener and removeAsyncListener. This complicates error-handling,
  * for reasons that are discussed below.
  */
-var listeners = new Array();
-var errorListeners = new Array();
+var listeners = null;
+var errorListeners = [];
 
 /**
  * There can be multiple listeners with the same properties, so disambiguate
@@ -99,7 +98,8 @@ if (process._fatalException) {
      * synchronous throws when the listener is active, there may have been
      * none pushed yet.
      */
-    listeners = new Array();
+    listeners = null;
+    errorListeners = [];
     errorValues = undefined;
 
     return handled && !inAsyncTick;
@@ -166,7 +166,8 @@ if (process._fatalException) {
       inAsyncTick = false;
 
       // back to the previous listener list on the stack
-      listeners = new Array();
+      listeners = null;
+      errorListeners = [];
       errorValues = undefined;
 
       return returned;
@@ -196,7 +197,13 @@ else {
    */
   asyncCatcher = function uncaughtCatcher(er) {
     // going down hard
-    if (errorThrew) throw er;
+    if (errorThrew) {
+      // back to the previous listener list on the stack
+      listeners = null;
+      errorListeners = [];
+      errorValues = undefined;
+      throw er;
+    }
 
     var handled = false;
 
@@ -216,6 +223,12 @@ else {
     /* Rethrow if one of the before / after handlers fire, which will bring the
      * process down immediately.
      */
+
+     // back to the previous listener list on the stack
+     listeners = null;
+     errorListeners = [];
+     errorValues = undefined;
+
     if (!handled && inAsyncTick) throw er;
   };
 
@@ -257,6 +270,8 @@ else {
        * current listeners on a stack.
        */
       listeners = list.slice();
+      errorListeners = list;
+      errorValues = values;
 
       /*
        * before handlers
@@ -312,7 +327,9 @@ else {
         }
 
         // back to the previous listener list on the stack
-        listeners = new Array();
+        listeners = null;
+        errorListeners = [];
+        errorValues = undefined;
       }
 
 
@@ -353,16 +370,16 @@ function simpleWrap(original, list, length) {
  * pass them off to asyncWrap for later use, otherwise just call the listener.
  */
 function wrapCallback(original) {
-  var length = listeners.length;
+  var length = listeners ? listeners.length : 0;
 
   // no context to capture, so avoid closure creation
   if (length === 0) return original;
 
   // capture the active listeners as of when the wrapped function was called
-  var list = listeners ? listeners.slice() : new Array();
+  var list = listeners.slice();
 
   for (var i = 0; i < length; ++i) {
-    if (listeners[i].flags > 1) return asyncWrap(original, list, length);
+    if (list[i].flags > 1) return asyncWrap(original, list, length);
   }
 
   return simpleWrap(original, list, length);
@@ -422,6 +439,14 @@ function addAsyncListener(callbacks, data) {
     listener = callbacks;
   }
 
+  if(!listeners) {
+    process.nextTick(function() {
+      listeners = null;
+    })
+    listeners = [listener]
+    return listener
+  }
+
   // Make sure the listener isn't already in the list.
   var registered = false;
   for (var i = 0; i < listeners.length; i++) {
@@ -437,6 +462,7 @@ function addAsyncListener(callbacks, data) {
 }
 
 function removeAsyncListener(listener) {
+  if(!listeners) return;
   for (var i = 0; i < listeners.length; i++) {
     if (listener === listeners[i]) {
       listeners.splice(i, 1);
