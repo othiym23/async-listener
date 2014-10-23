@@ -357,7 +357,7 @@ function simpleWrap(original, list, length) {
 
     var returned = original.apply(this, arguments);
 
-    listeners = new Array();
+    listeners = null;
 
     return returned;
   };
