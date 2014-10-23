@@ -221,3 +221,13 @@ if (crypto) {
     activator
   );
 }
+
+//wrap child process
+var childProcess
+try { childProcess = require('child_process') } catch (err) {}
+if(childProcess && childProcess.exec) {
+  wrap(childProcess, 'exec', activator)
+}
+if(childProcess && childProcess.execFile) {
+  wrap(childProcess, 'execFile', activator)
+}
