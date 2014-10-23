@@ -26,7 +26,6 @@ if (!global.setImmediate) global.setImmediate = setTimeout;
 var assert = require('assert');
 
 var once = 0;
-function onAsync0() {}
 
 var handlers = {
   before : function () {
@@ -40,7 +39,7 @@ var handlers = {
   }
 };
 
-var key = process.addAsyncListener(onAsync0, handlers);
+var key = process.addAsyncListener(handlers);
 
 process.on('uncaughtException', function () {
   // process should propagate error regardless of

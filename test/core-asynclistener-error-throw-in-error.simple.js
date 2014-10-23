@@ -26,8 +26,6 @@ if (!global.setImmediate) global.setImmediate = setTimeout;
 var assert  = require('assert');
 var cluster = require('cluster');
 
-function onAsync0() {}
-
 if (cluster.isMaster) {
   cluster.setupMaster({
     silent : true
@@ -57,7 +55,7 @@ if (cluster.isMaster) {
     }
   };
 
-  var key = process.addAsyncListener(onAsync0, handlers);
+  var key = process.addAsyncListener(handlers);
 
   process.on('unhandledException', function () {
     // throwing in 'error' should bypass unhandledException

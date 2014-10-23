@@ -49,7 +49,7 @@ var id;
 process.nextTick(function() {
   process.removeAsyncListener(id);
 });
-id = process.addAsyncListener(onAsync);
+id = process.addAsyncListener({create: onAsync});
 
 
 // Test listeners side-by-side

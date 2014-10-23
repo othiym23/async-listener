@@ -24,9 +24,6 @@ if (!process.addAsyncListener) require('../../index.js');
 
 var assert = require('assert');
 
-function onAsync0() {}
-function onAsync1() {}
-
 var once = 0;
 var handlers0 = {
   error: function (stor, err) {
@@ -43,7 +40,7 @@ var handlers1 = {
   }
 }
 
-var key0 = process.addAsyncListener(onAsync0, handlers0);
+var key0 = process.addAsyncListener(handlers0);
 
 process.on('uncaughtException', function (err) {
   // handlers0 error handler must be called once only
@@ -55,5 +52,5 @@ setImmediate(function () {
   throw 1;
 });
 
-process.addAsyncListener(onAsync1, handlers1);
+process.addAsyncListener(handlers1);
 process.removeAsyncListener(key0);

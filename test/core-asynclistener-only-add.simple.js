@@ -45,7 +45,7 @@ function onAsync() {
 }
 
 
-process.addAsyncListener(onAsync);
+process.addAsyncListener({create: onAsync});
 
 
 // Test listeners side-by-side

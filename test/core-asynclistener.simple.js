@@ -41,6 +41,7 @@ var callbacks = {
 };
 
 var listener = process.createAsyncListener(callbacks);
+var listener2 = process.createAsyncListener(callbacks);
 
 process.on('exit', function() {
   console.log('expected', expectAsync);
@@ -124,11 +125,25 @@ process.nextTick(function() {
   removeListener(listener);
 });
 
+// Adding this same listener only triggers once
+process.nextTick(function() {
+  addListener(listener);
+  addListener(listener);
+
+  setTimeout(function() {
+    process.nextTick(function() { });
+    expectAsync += 1;
+  });
+  expectAsync += 1;
+
+  removeListener(listener);
+  removeListener(listener2);
+});
 
 // Test triggers with two async listeners
 process.nextTick(function() {
   addListener(listener);
-  addListener(listener);
+  addListener(listener2);
 
   setTimeout(function() {
     process.nextTick(function() { });
@@ -137,7 +152,7 @@ process.nextTick(function() {
   expectAsync += 2;
 
   removeListener(listener);
-  removeListener(listener);
+  removeListener(listener2);
 });
 
 
