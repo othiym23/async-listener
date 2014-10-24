@@ -21,6 +21,7 @@
 
 
 if (!process.addAsyncListener) require('../../index.js');
+if(!global.setImmediate) global.setImmediate = setTimeout;
 
 var assert = require('assert');
 

@@ -271,47 +271,47 @@ else {
        */
       listeners = list.slice();
 
-      /*
-       * before handlers
-       */
-      inAsyncTick = true;
-      for (var i = 0; i < length; ++i) {
-        if ((list[i].flags & HAS_BEFORE_AL) > 0) {
-          list[i].before(this, values[list[i].uid]);
-        }
-      }
-      inAsyncTick = false;
-
       // save the return value to pass to the after callbacks
       var returned;
       try {
+        /*
+         * before handlers
+         */
+        inAsyncTick = true;
+        for (var i = 0; i < length; ++i) {
+          if ((list[i].flags & HAS_BEFORE_AL) > 0) {
+            list[i].before(this, values[list[i].uid]);
+          }
+        }
+        inAsyncTick = false;
+
         returned = original.apply(this, arguments);
+
+        /*
+         * after handlers (not run if original throws)
+         */
+        inAsyncTick = true;
+        for (i = 0; i < length; ++i) {
+          if ((list[i].flags & HAS_AFTER_AL) > 0) {
+            list[i].after(this, values[list[i].uid]);
+          }
+        }
+        inAsyncTick = false;
       }
       catch (er) {
-        threw = true;
+        threw = er;
         for (var i = 0; i < length; ++i) {
           if ((list[i].flags & HAS_ERROR_AL) === 0) continue;
           handled = list[i].error(values[list[i].uid], er) || handled;
         }
-
-        throw er;
       }
       finally {
-        /*
-         * after handlers (not run if original throws)
-         */
-        if (!threw || handled) {
-          inAsyncTick = true;
-          for (i = 0; i < length; ++i) {
-            if ((list[i].flags & HAS_AFTER_AL) > 0) {
-              list[i].after(this, values[list[i].uid]);
-            }
-          }
-          inAsyncTick = false;
-        }
-
         // reset listeners for any unwrapped async call
         listeners = null;
+
+        if(threw && (!handled || inAsyncTick)) {
+          throw threw;
+        }
       }
 
       return returned;
