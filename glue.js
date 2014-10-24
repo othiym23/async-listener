@@ -12,9 +12,18 @@ var HAS_ERROR_AL = 1 << 3;
 /**
  * There is one list of currently active listeners that is mutated in place by
  * addAsyncListener and removeAsyncListener. This complicates error-handling,
- * for reasons that are discussed below.
+ * for reasons that are discussed below. Currently active listeners are the set
+ * of listeners that will wrap NEW async context created.
  */
 var listeners = null;
+
+/**
+ * Error Listeners are the set of listeners that were present when the current
+ * async context was CREATED.  This list is set before any async callback is run
+ * and is reset to any empty list after the callback has finished. It is reset
+ * to an empty list in case an unwrapped callback is triggered, it is important
+ * not to cary over any error listeners from a different context
+ */
 var errorListeners = [];
 
 /**
@@ -31,18 +40,9 @@ var uid = 0;
 var inAsyncTick = false;
 
 /**
- * Because asynchronous contexts can be nested, and errors can come from anywhere
- * in the stack, a little extra work is required to keep track of where in the
- * nesting we are. Because JS arrays are frequently mutated in place
- */
-
-/**
- * The error handler on a listener can capture errors thrown during synchronous
- * execution immediately after the listener is added. To capture both
- * synchronous and asynchronous errors, the error handler just uses the
- * "global" list of active listeners, and the rest of the code ensures that the
- * listener list is correct by using a stack of listener lists during
- * asynchronous execution.
+ * This will pass Uncaught exceptions to the list of active error listeners.
+ * These handlers MAY indicate that they have handled the exceptio. If the
+ * exception is not handled by any of the listeners, the error will be rethrown
  */
 var asyncCatcher;
 
@@ -52,7 +52,7 @@ var asyncCatcher;
  */
 var asyncWrap;
 
-/*
+/**
  * For performance, split error-handlers and asyncCatcher up into two separate
  * code paths.
  */
@@ -81,7 +81,7 @@ if (process._fatalException) {
 
     var handled = false;
 
-    /*
+    /**
      * error handlers
      */
     inErrorTick = true;
@@ -94,9 +94,9 @@ if (process._fatalException) {
     }
     inErrorTick = false;
 
-    /* Test whether there are any listener arrays on the stack. In the case of
-     * synchronous throws when the listener is active, there may have been
-     * none pushed yet.
+    /**
+     * Reset listers errorListeners andError values, there may not be a chance
+     * to modify these immediately before entering an unwrapped async context
      */
     listeners = null;
     errorListeners = [];
@@ -105,6 +105,14 @@ if (process._fatalException) {
     return handled && !inAsyncTick;
   };
 
+
+  /**
+   * asyncWrap receives the set of listeners that were active when the async
+   * method was first called. This list is kept in scope ussing a closure around
+   * the callback wrapper.  This list is then used as a base for adding and
+   * removing listeners in the callback.  Adding and Removing listeners will
+   * only affect new async context created in that callback.
+   */
   asyncWrap = function asyncWrap(original, list, length) {
     var values = [];
 
@@ -131,11 +139,13 @@ if (process._fatalException) {
      * async method like this does).
      */
     return function () {
-      // put the current values where the catcher can see them
+      // put the current values and listeners where the catcher can see them
       errorValues = values;
       errorListeners = list;
 
-      /* More than one listener can end up inside these closures, so save the
+      /* Don't modify the set of listeners that is used for before after and
+       * error callbacks for the current context when adding or removing
+       * listeners
        * current listeners on a stack.
        */
       listeners = list.slice();
@@ -165,7 +175,10 @@ if (process._fatalException) {
       }
       inAsyncTick = false;
 
-      // back to the previous listener list on the stack
+      /**
+       * Reset listers errorListeners andError values, there may not be a chance
+       * to modify these immediately before entering an unwrapped async context
+       */
       listeners = null;
       errorListeners = [];
       errorValues = undefined;
@@ -182,56 +195,6 @@ if (process._fatalException) {
 }
 // 0.8 and below
 else {
-  /**
-   * If an error handler in asyncWrap throws, the process must die. Under 0.8
-   * and earlier the only way to put a bullet through the head of the process
-   * is to rethrow from inside the exception handler, so rethrow and set
-   * errorThrew to tell the uncaughtHandler what to do.
-   */
-  var errorThrew = false;
-
-  /**
-   * Under Node 0.8, this handler *only* handles synchronously thrown errors.
-   * This simplifies it, which almost but not quite makes up for the hit taken
-   * by putting everything in a try-catch.
-   */
-  asyncCatcher = function uncaughtCatcher(er) {
-    // going down hard
-    if (errorThrew) {
-      // back to the previous listener list on the stack
-      listeners = null;
-      errorListeners = [];
-      errorValues = undefined;
-      throw er;
-    }
-
-    var handled = false;
-
-    /*
-     * error handlers
-     */
-    var length = errorListeners.length;
-
-    for (var i = 0; i < length; ++i) {
-      var listener = errorListeners[i];
-      if ((listener.flags & HAS_ERROR_AL) === 0) continue;
-
-      var value = errorValues && errorValues[listener.uid];
-      handled = listener.error(value, er) || handled;
-    }
-
-    /* Rethrow if one of the before / after handlers fire, which will bring the
-     * process down immediately.
-     */
-
-     // back to the previous listener list on the stack
-     listeners = null;
-     errorListeners = [];
-     errorValues = undefined;
-
-    if (!handled && inAsyncTick) throw er;
-  };
-
   asyncWrap = function asyncWrap(original, list, length) {
     var values = [];
 
@@ -266,12 +229,12 @@ else {
       // ...unless the error is handled
       var handled = false;
 
-      /* More than one listener can end up inside these closures, so save the
+      /* Don't modify the set of listeners that is used for before after and
+       * error callbacks for the current context when adding or removing
+       * listeners
        * current listeners on a stack.
        */
       listeners = list.slice();
-      errorListeners = list;
-      errorValues = values;
 
       /*
        * before handlers
@@ -293,24 +256,10 @@ else {
         threw = true;
         for (var i = 0; i < length; ++i) {
           if ((list[i].flags & HAS_ERROR_AL) > 0) continue;
-          try {
-            handled = list[i].error(values[list[i].uid], er) || handled;
-          }
-          catch (x) {
-            errorThrew = true;
-            throw x;
-          }
+          handled = list[i].error(values[list[i].uid], er) || handled;
         }
 
-        if (!handled) {
-          // having an uncaughtException handler here alters crash semantics
-          process.removeListener('uncaughtException', asyncCatcher);
-          process._originalNextTick(function () {
-            process.addListener('uncaughtException', asyncCatcher);
-          });
-
-          throw er;
-        }
+        throw er;
       }
       finally {
         /*
@@ -326,19 +275,13 @@ else {
           inAsyncTick = false;
         }
 
-        // back to the previous listener list on the stack
+        // reset listeners for any unwrapped async call
         listeners = null;
-        errorListeners = [];
-        errorValues = undefined;
       }
-
 
       return returned;
     };
   };
-
-  // will be the first to fire if async-listener is the first module loaded
-  process.addListener('uncaughtException', asyncCatcher);
 }
 
 // for performance in the case where there are no handlers, just the listener
@@ -353,6 +296,10 @@ function simpleWrap(original, list, length) {
   // still need to make sure nested async calls are made in the context
   // of the listeners active at their creation
   return function () {
+    /**
+     * no need to copy list here since its already a copy and there are no
+     * errorListeners to set
+     */
     listeners = list;
 
     var returned = original.apply(this, arguments);
@@ -440,6 +387,9 @@ function addAsyncListener(callbacks, data) {
   }
 
   if(!listeners) {
+    /**
+     * we are not in a wrapped context so listeners will not be reset for us
+     */
     process.nextTick(function() {
       listeners = null;
     })
