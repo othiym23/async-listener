@@ -22,7 +22,10 @@
 var PORT = 12346;
 
 if (!process.addAsyncListener) require('../index.js');
-if (!global.setImmediate) global.setImmediate = setTimeout;
+if (!global.setImmediate) {
+  var node08 = true;
+  global.setImmediate = setTimeout;
+}
 
 var assert = require('assert');
 var net = require('net');
@@ -191,7 +194,13 @@ process.nextTick(function() {
 
 
 // Test UDP
+
 process.nextTick(function() {
+  // create socket does not create an async context in 0.8
+  if(node08) {
+    return
+  }
+
   addListener(listener);
   var server = dgram.createSocket('udp4');
   expectAsync++;
