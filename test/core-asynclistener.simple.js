@@ -193,9 +193,6 @@ process.nextTick(function() {
 // Test UDP
 process.nextTick(function() {
   addListener(listener);
-  addListener({create: function() {
-    throw new Error
-  }})
   var server = dgram.createSocket('udp4');
   expectAsync++;
 
