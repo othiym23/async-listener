@@ -290,7 +290,7 @@ else {
       catch (er) {
         threw = true;
         for (var i = 0; i < length; ++i) {
-          if ((list[i].flags & HAS_ERROR_AL) > 0) continue;
+          if ((list[i].flags & HAS_ERROR_AL) === 0) continue;
           handled = list[i].error(values[list[i].uid], er) || handled;
         }
 
