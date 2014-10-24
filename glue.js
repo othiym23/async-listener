@@ -53,6 +53,41 @@ var asyncCatcher;
 var asyncWrap;
 
 /**
+ * After adding a listener we have set the current set of active listeners to
+ * include this newly added listener. Wrapped callbacks reset this global list
+ * before executing, and clear it after they are done, however if we are in an
+ * unwrapped callback, and add a listener, the list will not be cleared. If the
+ * next thing that the event loop picks up is an unwrapped callback, this list
+ * still will contain the newley added listener.  This means that we need to
+ * clean our active list. By the time we add a litener another nextTick may have
+ * already been queued meaning there is no way to clean up before another async
+ * callback might be called. To get around this, we patch next tick to always
+ * clear the active set of listeners before allowing more async callbacks to be
+ * executed. The other option would be to wrap all nextTick callbacks even if
+ * there are no listeners (or just make addListener async).
+ */
+var nextTick = process.nextTick;
+var queued = false;
+var nextTickQueue = []
+
+process.nextTick = function queueNextTick(fn) {
+  nextTickQueue.push(fn)
+  if(!queued) {
+    queued = true;
+    nextTick(drain)
+  }
+}
+
+function drain() {
+  for(var i = 0, l = nextTickQueue.length; i < l; ++i) {
+    nextTick(nextTickQueue[i])
+  }
+  queued = false;
+  listeners = null;
+  nextTickQueue = [];
+}
+
+/**
  * For performance, split error-handlers and asyncCatcher up into two separate
  * code paths.
  */
@@ -387,12 +422,10 @@ function addAsyncListener(callbacks, data) {
   }
 
   if(!listeners) {
-    /**
-     * we are not in a wrapped context so listeners will not be reset for us
-     */
-    process.nextTick(function() {
-      listeners = null;
-    })
+    // clean up listeners incase no other next tick was scheduled
+    if(!queued) {
+      nextTick(drain)
+    }
     listeners = [listener]
     return listener
   }
