@@ -223,7 +223,7 @@ if (process._fatalException) {
 
   wrap(process, '_fatalException', function (_fatalException) {
     return function _asyncFatalException(er) {
-      var list = listeners.slice();
+      var list = listeners ? listeners.slice() : [];
       var length = list.length;
       var wasInAsyncTick = inAsyncTick
 
@@ -301,7 +301,7 @@ else {
         after(this, values, list, length);
       }
       catch (er) {
-        var errorList = listeners.slice();
+        var errorList = listeners ? listeners.slice() : null;
         var errorLength = errorList.length;
 
         if(!inAsyncTick) {
