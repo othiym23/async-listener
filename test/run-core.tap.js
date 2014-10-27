@@ -40,7 +40,7 @@ test('passes core tests', function (t) {
       } else if(stderr) {
         t.fail(file)
       } else {
-        t.ok(stdout, file)
+        t.ok(stdout.match(/ok\s*$/), file)
       }
 
       done()

@@ -52,6 +52,7 @@ process.on('exit', function() {
   // TODO(trevnorris): Not a great test. If one was missed, but others
   // overflowed then the test would still pass.
   assert.ok(actualAsync >= expectAsync);
+  console.log('ok');
 });
 
 
