@@ -225,9 +225,9 @@ if (process._fatalException) {
     return function _asyncFatalException(er) {
       var list = listeners.slice();
       var length = list.length;
+      var wasInAsyncTick = inAsyncTick
 
-      if(!inAsyncTick) {
-        var wasInAsyncTick = true;
+      if(!wasInAsyncTick) {
         var values = create(list, length);
       }
 
