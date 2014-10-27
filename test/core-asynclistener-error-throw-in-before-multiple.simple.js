@@ -29,11 +29,11 @@ var once = 0;
 
 var handlers = {
   before : function () {
-    throw 1;
+    throw new Error('1');
   },
   error : function (stor, err) {
     // must catch error thrown in before
-    assert.equal(err, 1);
+    assert.equal(err.message, '1');
 
     once++;
 
@@ -43,11 +43,11 @@ var handlers = {
 
 var handlers1 = {
   before : function () {
-    throw 2;
+    throw new Error('2');
   },
   error : function (stor, err) {
     // must catch *other* handler's throw error
-    assert.equal(err, 1);
+    assert.equal(err.message, '1');
 
     once++;
 
@@ -64,6 +64,8 @@ process.on('uncaughtException', function () {
   // both error handlers must fire
   assert.equal(once, 2);
 
+  process.removeAsyncListener(handlers)
+  process.removeAsyncListener(handlers1)
   console.log('ok');
 });
 

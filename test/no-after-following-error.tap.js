@@ -18,11 +18,11 @@ test("after handler not run on throw", function (t) {
   process.addAsyncListener(key);
 
   setImmediate(function () {
+    process.removeAsyncListener(key);
     throw new Error('whoops');
   });
 
   function handler(err) {
-    process.removeAsyncListener(key);
     process.removeListener('uncaughtException', handler);
     t.ok(err, "error was propagated");
   }

@@ -36,11 +36,11 @@ test('passes core tests', function (t) {
   function run(file, done) {
     exec('node ' + file, {cwd: __dirname}, function(err, stdout, stderr) {
       if(err) {
-        t.fail(err)
+        t.fail(file)
       } else if(stderr) {
-        t.fail(strderr)
+        t.fail(file)
       } else {
-        t.ok(stdout)
+        t.ok(stdout, file)
       }
 
       done()

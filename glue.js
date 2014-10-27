@@ -1,4 +1,5 @@
 var wrap = require('shimmer').wrap;
+
 /*
  *
  * CONSTANTS
@@ -71,7 +72,8 @@ var queued = false;
 var nextTickQueue = []
 
 process.nextTick = function queueNextTick(fn) {
-  nextTickQueue.push(fn)
+  if(process.domain) fn = process.domain.bind(fn);
+  nextTickQueue.push(fn);
   if(!queued) {
     queued = true;
     nextTick(drain)
@@ -85,6 +87,48 @@ function drain() {
   queued = false;
   listeners = null;
   nextTickQueue = [];
+}
+
+function create(list, length) {
+  var values = [];
+  inAsyncTick = true;
+  for (var i = 0; i < length; ++i) {
+    var listener = list[i];
+    values[listener.uid] = listener.data;
+
+    if ((listener.flags & HAS_CREATE_AL) === 0) continue;
+
+    var value = listener.create(listener.data);
+    if (value !== undefined) values[listener.uid] = value;
+  }
+  inAsyncTick = false;
+  return values;
+}
+
+function before(ctx, values, list, length) {
+  inAsyncTick = true;
+  for (var i = 0; i < length; ++i) {
+    if ((list[i].flags & HAS_BEFORE_AL) > 0) {
+      list[i].before(ctx, values[list[i].uid]);
+    }
+  }
+  inAsyncTick = false;
+}
+
+function after(ctx, values, list, length) {
+  inAsyncTick = true;
+  for (i = 0; i < length; ++i) {
+    if ((list[i].flags & HAS_AFTER_AL) > 0) {
+      list[i].after(ctx, values[list[i].uid]);
+    }
+  }
+  inAsyncTick = false;
+}
+
+function exitContext() {
+  listeners = null;
+  errorListeners = [];
+  errorValues = undefined;
 }
 
 /**
@@ -115,7 +159,6 @@ if (process._fatalException) {
     if (inErrorTick || length === 0) return false;
 
     var handled = false;
-
     /**
      * error handlers
      */
@@ -129,15 +172,7 @@ if (process._fatalException) {
     }
     inErrorTick = false;
 
-    /**
-     * Reset listers errorListeners andError values, there may not be a chance
-     * to modify these immediately before entering an unwrapped async context
-     */
-    listeners = null;
-    errorListeners = [];
-    errorValues = undefined;
-
-    return handled && !inAsyncTick;
+    return handled
   };
 
 
@@ -149,22 +184,7 @@ if (process._fatalException) {
    * only affect new async context created in that callback.
    */
   asyncWrap = function asyncWrap(original, list, length) {
-    var values = [];
-
-    /*
-     * listeners
-     */
-    inAsyncTick = true;
-    for (var i = 0; i < length; ++i) {
-      var listener = list[i];
-      values[listener.uid] = listener.data;
-
-      if ((listener.flags & HAS_CREATE_AL) === 0) continue;
-
-      var value = listener.create(listener.data);
-      if (value !== undefined) values[listener.uid] = value;
-    }
-    inAsyncTick = false;
+    var values = create(list, length);
 
     /* One of the main differences between this polyfill and the core
      * asyncListener support is that core avoids creating closures by putting a
@@ -185,16 +205,7 @@ if (process._fatalException) {
        */
       listeners = list.slice();
 
-      /*
-       * before handlers
-       */
-      inAsyncTick = true;
-      for (var i = 0; i < length; ++i) {
-        if ((list[i].flags & HAS_BEFORE_AL) > 0) {
-          list[i].before(this, values[list[i].uid]);
-        }
-      }
-      inAsyncTick = false;
+      before(this, values, list, length);
 
       // save the return value to pass to the after callbacks
       var returned = original.apply(this, arguments);
@@ -202,21 +213,9 @@ if (process._fatalException) {
       /*
        * after handlers (not run if original throws)
        */
-      inAsyncTick = true;
-      for (i = 0; i < length; ++i) {
-        if ((list[i].flags & HAS_AFTER_AL) > 0) {
-          list[i].after(this, values[list[i].uid]);
-        }
-      }
-      inAsyncTick = false;
+      after(this, values, list, length);
 
-      /**
-       * Reset listers errorListeners andError values, there may not be a chance
-       * to modify these immediately before entering an unwrapped async context
-       */
-      listeners = null;
-      errorListeners = [];
-      errorValues = undefined;
+      exitContext();
 
       return returned;
     };
@@ -224,37 +223,50 @@ if (process._fatalException) {
 
   wrap(process, '_fatalException', function (_fatalException) {
     return function _asyncFatalException(er) {
-      return asyncCatcher(er) || _fatalException(er);
+      var list = listeners.slice();
+      var length = list.length;
+
+      if(!inAsyncTick) {
+        var wasInAsyncTick = true;
+        var values = create(list, length);
+      }
+
+      var returned = asyncCatcher(er);
+
+      if(returned && !wasInAsyncTick) {
+        exitContext();
+        return returned
+      }
+
+      if(wasInAsyncTick || !list || !length) {
+        exitContext();
+        return _fatalException(er);
+      }
+
+      errorListeners = list;
+      errorValues = values;
+
+      before(null, values, list, length);
+
+      nextTickQueue.unshift(function() {
+        after(null, values, list, length);
+        exitContext();
+      });
+
+      if(!queued) {
+        queued = true;
+        nextTick(drain);
+      }
+
+      return _fatalException(er);
     };
   });
 }
 // 0.8 and below
 else {
   asyncWrap = function asyncWrap(original, list, length) {
-    var values = [];
+    var values = create(list, length);
 
-    /*
-     * listeners
-     */
-    inAsyncTick = true;
-    for (var i = 0; i < length; ++i) {
-      var listener = list[i];
-      values[listener.uid] = listener.data;
-
-      if ((listener.flags & HAS_CREATE_AL) === 0) continue;
-
-      var value = listener.create(listener.data);
-      if (value !== undefined) values[listener.uid] = value;
-    }
-    inAsyncTick = false;
-
-    /* One of the main differences between this polyfill and the core
-     * asyncListener support is that core avoids creating closures by putting a
-     * lot of the state managemnt on the C++ side of Node (and of course also it
-     * bakes support for async listeners into the Node C++ API through the
-     * AsyncWrap class, which means that it doesn't monkeypatch basically every
-     * async method like this does).
-     */
     return function () {
       /*jshint maxdepth:4*/
 
@@ -263,6 +275,8 @@ else {
 
       // ...unless the error is handled
       var handled = false;
+
+      var wasInAsyncTick = false;
 
       /* Don't modify the set of listeners that is used for before after and
        * error callbacks for the current context when adding or removing
@@ -277,44 +291,58 @@ else {
         /*
          * before handlers
          */
-        inAsyncTick = true;
-        for (var i = 0; i < length; ++i) {
-          if ((list[i].flags & HAS_BEFORE_AL) > 0) {
-            list[i].before(this, values[list[i].uid]);
-          }
-        }
-        inAsyncTick = false;
+        before(this, values, list, length);
 
         returned = original.apply(this, arguments);
 
         /*
          * after handlers (not run if original throws)
          */
-        inAsyncTick = true;
-        for (i = 0; i < length; ++i) {
-          if ((list[i].flags & HAS_AFTER_AL) > 0) {
-            list[i].after(this, values[list[i].uid]);
-          }
-        }
-        inAsyncTick = false;
+        after(this, values, list, length);
       }
       catch (er) {
+        var errorList = listeners.slice();
+        var errorLength = errorList.length;
+
+        if(!inAsyncTick) {
+          wasInAsyncTick = true;
+          var errorValues = create(errorList, errorLength);
+        }
+
         threw = er;
         for (var i = 0; i < length; ++i) {
           if ((list[i].flags & HAS_ERROR_AL) === 0) continue;
           handled = list[i].error(values[list[i].uid], er) || handled;
         }
-      }
-      finally {
-        // reset listeners for any unwrapped async call
-        listeners = null;
 
-        if(threw && (!handled || inAsyncTick)) {
-          throw threw;
+        if(handled && !wasInAsyncTick) {
+          return;
+        }
+
+        if(wasInAsyncTick || !errorList || !errorLength) {
+          return;
         }
       }
+      finally {
+        if(!threw || (handled && wasInAsyncTick)) {
+          exitContext();
+          return returned;
+        }
 
-      return returned;
+        before(null, errorValues, errorList, errorLength);
+
+        nextTickQueue.unshift(function() {
+          after(null, errorValues, errorList, errorLength);
+          exitContext();
+        });
+
+        if(!queued) {
+          queued = true;
+          nextTick(drain);
+        }
+
+        throw threw;
+      }
     };
   };
 }
@@ -424,7 +452,8 @@ function addAsyncListener(callbacks, data) {
   if(!listeners) {
     // clean up listeners incase no other next tick was scheduled
     if(!queued) {
-      nextTick(drain)
+      queued = true;
+      nextTick(drain);
     }
     listeners = [listener]
     return listener
