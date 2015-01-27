@@ -221,3 +221,17 @@ if (crypto) {
     activator
   );
 }
+
+// Wrap native promises
+if (global.Promise) {
+  wrap(Promise.prototype, 'then', function (then) {
+    return function (fulfilled, rejected, progressed) {
+      return then.call(
+        this,
+        wrapCallback(fulfilled),
+        wrapCallback(rejected),
+        wrapCallback(progressed)
+      )
+    }
+  })
+}
