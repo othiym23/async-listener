@@ -28,7 +28,7 @@ test('synchronous errors during connect return a null _handle', function(t){
       // try to reconnect, but this has an error
       // rather than throw the right error, we're going to get an async-listener error
       t.ok(true, 'end');
-      client.connect();
+      client.connect(8001);
     }, 100);
   });
 });
