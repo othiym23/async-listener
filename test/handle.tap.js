@@ -1,4 +1,4 @@
-require('../index.js');
+if (!process.addAsyncListener) require('../index.js');
 
 var test = require('tap').test;
 var net = require('net');
