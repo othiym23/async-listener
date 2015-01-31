@@ -312,7 +312,7 @@ else {
       catch (er) {
         threw = true;
         for (var i = 0; i < length; ++i) {
-          if ((listeners[i].flags & HAS_ERROR_AL) > 0) continue;
+          if ((listeners[i].flags & HAS_ERROR_AL) == 0) continue;
           try {
             handled = listeners[i].error(values[list[i].uid], er) || handled;
           }
