@@ -7,7 +7,7 @@ if (!process.addAsyncListener) require('../index.js');
 var PORT = 12346;
 
 test("another connection handler disconnects server", function (t) {
-    t.plan(3);
+    t.plan(5);
 
     // This tests that we don't crash when another connection listener
     // destroys the socket handle before we try to wrap
@@ -25,10 +25,14 @@ test("another connection handler disconnects server", function (t) {
         }
     );
 
+    server.on('error', function (err) {
+        t.fail(true, 'It should not produce errors');
+    });
+
     server.on(
         'listening',
         function () {
-            t.ok('Server listened ok');
+            t.ok(true, 'Server listened ok');
 
             // This will run both 'connection' handlers, with the one above
             // running first.
@@ -39,9 +43,21 @@ test("another connection handler disconnects server", function (t) {
                 function () {
                     t.ok(true, 'connected ok');
                     client.destroy();
-                    server.close();
                 }
             );
+
+            client.on(
+                'close',
+                function () {
+                    t.ok(true, 'disconnected ok');
+                    server.close(function () {
+                        t.ok(
+                            !server._handle,
+                            'Destroy removed the server handle'
+                        );
+                    });
+                }
+            )
         }
     );
 
@@ -49,4 +65,3 @@ test("another connection handler disconnects server", function (t) {
     server.listen(PORT);
 
 });
-
