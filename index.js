@@ -221,3 +221,88 @@ if (crypto) {
     activator
   );
 }
+
+var instrumentPromise = !!global.Promise;
+
+// Check that global Promise is native
+if (instrumentPromise) {
+  // shoult not use any methods that have already been wrapped
+  var promiseListener = process.addAsyncListener({
+    create: function create() {
+      instrumentPromise = false;
+    }
+  });
+
+  // should not resolve synchronously
+  global.Promise.resolve(true).then(function notSync() {
+    instrumentPromise = false;
+  });
+
+  process.removeAsyncListener(promiseListener);
+}
+
+if (instrumentPromise) {
+  var Promise = global.Promise;
+
+  global.Promise = function wrappedPromise(executor) {
+    if (!(this instanceof global.Promise)) {
+      return Promise(executor);
+    }
+
+    var promise = new Promise(wrappedExecutor);
+    var context, args;
+    executor.apply(context, args);
+
+
+    return promise;
+
+    function wrappedExecutor(accept, reject) {
+      context = this;
+      args = [wrappedAccept, wrappedReject];
+
+      // These wrappers create a function that can be passed a function and an argument to
+      // call as a continuation from the accept or reject.
+      function wrappedAccept(val) {
+        if (promise.__asl_wrapper) return accept(val);
+        promise.__asl_wrapper = wrapCallback(function(ctx, fn, result) {
+          return fn.call(ctx, result);
+        });
+        return accept(val);
+      }
+
+      function wrappedReject(val) {
+        if (promise.__asl_wrapper) return reject(val);
+        promise.__asl_wrapper = wrapCallback(function(ctx, fn, result) {
+          return fn.call(ctx, result);
+        });
+        return reject(val);
+      }
+    }
+  }
+
+  wrap(Promise.prototype, 'then', wrapThen);
+  wrap(Promise.prototype, 'chain', wrapThen);
+
+  var PromiseMethods = ['accept', 'all', 'defer', 'race', 'reject', 'resolve'];
+
+  PromiseMethods.forEach(function(key) {
+    global.Promise[key] = Promise[key];
+  });
+}
+
+function wrapThen(original) {
+  return function wrappedThen() {
+    var promise = this;
+    return original.apply(this, [].map.call(arguments, bind));
+
+    // wrap callbacks (success, error) so that the callbacks will be called as a
+    // continuations of the accept or reject call using the __asl__wrapper created above.
+    function bind(fn) {
+      if (typeof fn !== 'function') return fn;
+      return function(val) {
+        if (!promise.__asl_wrapper) return fn.call(this, val);
+        return promise.__asl_wrapper(this, fn, val);
+      };
+    }
+  }
+}
