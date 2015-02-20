@@ -41,13 +41,15 @@ var callbacks = {
 };
 
 var listener = process.createAsyncListener(callbacks);
+var listener2 = process.createAsyncListener(callbacks);
 
 process.on('exit', function() {
   console.log('expected', expectAsync);
   console.log('actual  ', actualAsync);
+  assert.equal(actualAsync, expectAsync);
+  console.log('ok')
   // TODO(trevnorris): Not a great test. If one was missed, but others
   // overflowed then the test would still pass.
-  assert.ok(actualAsync >= expectAsync);
 });
 
 
@@ -92,7 +94,6 @@ process.nextTick(function() {
   removeListener(listener);
 });
 
-
 // Async listeners should propagate with nested callbacks
 process.nextTick(function() {
   addListener(listener);
@@ -124,11 +125,10 @@ process.nextTick(function() {
   removeListener(listener);
 });
 
-
 // Test triggers with two async listeners
 process.nextTick(function() {
   addListener(listener);
-  addListener(listener);
+  addListener(listener2);
 
   setTimeout(function() {
     process.nextTick(function() { });
@@ -137,9 +137,8 @@ process.nextTick(function() {
   expectAsync += 2;
 
   removeListener(listener);
-  removeListener(listener);
+  removeListener(listener2);
 });
-
 
 // Test callbacks from fs I/O
 process.nextTick(function() {

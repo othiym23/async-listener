@@ -31,9 +31,10 @@ var expectAsync = 0;
 
 
 process.on('exit', function() {
-  console.log('expected', expectAsync);
-  console.log('actual  ', actualAsync);
   assert.equal(expectAsync, actualAsync);
+  var actual = actualAsync
+  console.log('expected', expectAsync);
+  console.log('actual  ', actual);
   console.log('ok');
 });
 
@@ -45,7 +46,7 @@ function onAsync() {
 }
 
 
-process.addAsyncListener(onAsync);
+process.addAsyncListener({create: onAsync});
 
 
 // Test listeners side-by-side

@@ -26,8 +26,6 @@ if (!global.setImmediate) global.setImmediate = setTimeout;
 var assert = require('assert');
 
 var once = 0;
-function onAsync0() {}
-function onAsync1() {}
 
 var handlers = {
   before : function () {
@@ -58,8 +56,8 @@ var handlers1 = {
 };
 
 var keys = [
-  process.addAsyncListener(onAsync0, handlers),
-  process.addAsyncListener(onAsync1, handlers1)
+  process.addAsyncListener(handlers),
+  process.addAsyncListener(handlers1)
 ];
 
 process.on('uncaughtException', function () {
@@ -76,4 +74,3 @@ setImmediate(function () {
 keys.forEach(function (key) {
   process.removeAsyncListener(key);
 });
-

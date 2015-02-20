@@ -25,12 +25,11 @@ if (!global.setImmediate) global.setImmediate = setTimeout;
 
 var assert = require('assert');
 
-function onAsync0() {
-  return 0;
-}
-
 var set = 0;
 var asyncNoHandleError = {
+  create: function () {
+    return 0;
+  },
   before : function () {
     set ++;
   },
@@ -39,7 +38,7 @@ var asyncNoHandleError = {
   }
 };
 
-var key = process.addAsyncListener(onAsync0, asyncNoHandleError);
+var key = process.addAsyncListener(asyncNoHandleError);
 
 process.removeAsyncListener(key);
 
