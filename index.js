@@ -112,11 +112,22 @@ var asynchronizers = [
 ];
 if (global.setImmediate) asynchronizers.push('setImmediate');
 
+var timers = require('timers');
+var patchGlobalTimers = global.setTimeout === timers.setTimeout;
+
 massWrap(
-  require('timers'),
+  timers,
   asynchronizers,
   activatorFirst
 );
+
+if (patchGlobalTimers) {
+  massWrap(
+    global,
+    asynchronizers,
+    activatorFirst
+  );
+}
 
 var dns = require('dns');
 massWrap(
