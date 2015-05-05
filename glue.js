@@ -54,6 +54,12 @@ var asyncCatcher;
 var asyncWrap;
 
 /**
+ * Counter for the number of nested wrappings in the same tick, used when poping from listenerStack to pop the right
+ * number of frames
+ */
+var nestedAsyncWraps = 0;
+
+/**
  * Simple helper function that's probably faster than using Array
  * filter methods and can be inlined.
  */
@@ -128,7 +134,10 @@ if (process._fatalException) {
      * synchronous throws when the listener is active, there may have been
      * none pushed yet.
      */
-    if (listenerStack.length > 0) listeners = listenerStack.pop();
+    while (nestedAsyncWraps > 0) {
+        if (listenerStack.length > 0) listeners = listenerStack.pop();
+        nestedAsyncWraps--;
+    }
     errorValues = undefined;
 
     return handled && !inAsyncTick;
@@ -167,6 +176,7 @@ if (process._fatalException) {
        * current listeners on a stack.
        */
       listenerStack.push(listeners);
+      nestedAsyncWraps++;
 
       /* Activate both the listeners that were active when the closure was
        * created and the listeners that were previously active.
@@ -200,6 +210,7 @@ if (process._fatalException) {
 
       // back to the previous listener list on the stack
       listeners = listenerStack.pop();
+      nestedAsyncWraps--;
       errorValues = undefined;
 
       return returned;
