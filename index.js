@@ -6,6 +6,7 @@ var shimmer      = require('shimmer')
   , wrap         = shimmer.wrap
   , massWrap     = shimmer.massWrap
   , wrapCallback = require('./glue.js')
+  , util         = require('util')
   ;
 
 // Shim activator for functions that have callback last
@@ -256,14 +257,18 @@ if (instrumentPromise) {
   var Promise = global.Promise;
 
   global.Promise = function wrappedPromise(executor) {
-    if (!(this instanceof global.Promise)) {
+    if (!(this instanceof wrappedPromise)) {
       return Promise(executor);
     }
 
-    var promise = new Promise(wrappedExecutor);
-    var context, args;
-    executor.apply(context, args);
+    if (typeof executor !== 'function') {
+      return new Promise(executor);
+    }
 
+    var context, args;
+    var promise = new Promise(wrappedExecutor);
+    promise.__proto__ = wrappedPromise.prototype;
+    executor.apply(context, args);
 
     return promise;
 
@@ -291,6 +296,8 @@ if (instrumentPromise) {
     }
   }
 
+  util.inherits(global.Promise, Promise)
+
   wrap(Promise.prototype, 'then', wrapThen);
   wrap(Promise.prototype, 'chain', wrapThen);
 
@@ -304,7 +311,7 @@ if (instrumentPromise) {
 function wrapThen(original) {
   return function wrappedThen() {
     var promise = this;
-    return original.apply(this, [].map.call(arguments, bind));
+    return original.apply(promise, Array.prototype.map.call(arguments, bind));
 
     // wrap callbacks (success, error) so that the callbacks will be called as a
     // continuations of the accept or reject call using the __asl__wrapper created above.

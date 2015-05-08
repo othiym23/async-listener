@@ -1,6 +1,9 @@
 if (!global.Promise) return;
 
 var test = require('tap').test;
+
+var unwrappedPromise = global.Promise
+
 require('../index.js');
 
 
@@ -155,6 +158,7 @@ test('catch', function(t) {
     reject(15);
   });
 
+  listener.currentName = 'catch'
   promise.catch(function(val) {
     listener.currentName = 'nextTick in catch';
     process.nextTick(function() {
@@ -173,6 +177,16 @@ test('catch', function(t) {
         t.strictEqual(this, global);
         listener.currentName = 'setTimeout in then';
         setTimeout(function() {
+          // some version of iojs use nextTick for some parts of its async
+          if (listener.root.children.length === 3) {
+            expected.children.splice(-1, 0, {
+              name: 'catch',
+              children: [],
+              before: 1,
+              after: 1,
+              error: 0
+            })
+          }
           t.deepEqual(listener.root, expected);
           t.end();
         });
@@ -297,33 +311,48 @@ test('Promise.reject', function rejectTest(t) {
   listener.currentName = 'reject';
   var p = Promise.reject(123);
 
+  listener.currentName = 'catch'
   p.catch(function then(value) {
     listener.currentName = 'nextTick';
     process.nextTick(function next() {
       t.equal(value, 123);
-      t.deepEqual(listener.root, {
-        name: 'root',
-        children: [{
-            name: 'reject',
-          children: [{
-            name: 'nextTick',
-            children: [],
-            before: 1,
-            after: 0,
-            error: 0
-          }],
+
+      // some version of iojs use nextTick for some parts of its async
+      if (listener.root.children.length === 2) {
+        expected.children.push({
+          name: 'catch',
+          children: [],
           before: 1,
           after: 1,
           error: 0
-        }],
-        before: 0,
-        after: 0,
-        error: 0
-      });
+        })
+      }
+
+      t.deepEqual(listener.root, expected);
       t.end();
     });
     process.removeAsyncListener(listener.listener);
   });
+
+  var expected = {
+    name: 'root',
+    children: [{
+        name: 'reject',
+      children: [{
+        name: 'nextTick',
+        children: [],
+        before: 1,
+        after: 0,
+        error: 0
+      }],
+      before: 1,
+      after: 1,
+      error: 0
+    }],
+    before: 0,
+    after: 0,
+    error: 0
+  }
 });
 
 test('Promise.all', function allTest(t) {
@@ -390,42 +419,55 @@ test('Promise.all reject', function allTest(t) {
   p.catch(function then(value) {
     listener.currentName = 'nextTick';
     process.nextTick(function next() {
-      process.removeAsyncListener(listener.listener);
-      t.equal(value, 456)
-      t.deepEqual(listener.root, {
-        name: 'root',
-        children: [{
-          name: 'resolve',
+      // some version of iojs use nextTick for some parts of its async
+      if (listener.root.children.length === 3) {
+        expected.children.push({
+          name: 'all',
           children: [],
           before: 1,
           after: 1,
           error: 0
-        }, {
-          name: 'reject',
-          children: [{
-            name: 'all',
-            children: [{
-              name: 'nextTick',
-              children: [],
-              before: 1,
-              after: 0,
-              error: 0
-            }],
-            before: 1,
-            after: 1,
-            error: 0
-          }],
-          before: 1,
-          after: 1,
-          error: 0
-        }],
-        before: 0,
-        after: 0,
-        error: 0
-      })
+        })
+      }
+
+      process.removeAsyncListener(listener.listener);
+      t.equal(value, 456)
+      t.deepEqual(listener.root, expected)
       t.end();
     });
   });
+
+  var expected = {
+    name: 'root',
+    children: [{
+      name: 'resolve',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    }, {
+      name: 'reject',
+      children: [{
+        name: 'all',
+        children: [{
+          name: 'nextTick',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
+        }],
+        before: 1,
+        after: 1,
+        error: 0
+      }],
+      before: 1,
+      after: 1,
+      error: 0
+    }],
+    before: 0,
+    after: 0,
+    error: 0
+  }
 });
 
 test('Promise.race', function raceTest(t) {
@@ -494,40 +536,54 @@ test('Promise.race - reject', function raceTest(t) {
     process.nextTick(function next() {
       process.removeAsyncListener(listener.listener);
       t.equal(value, 123)
-      t.deepEqual(listener.root, {
-        name: 'root',
-        children: [{
-          name: 'reject',
-          children: [{
-            name: 'race',
-            children: [{
-              name: 'nextTick',
-              children: [],
-              before: 1,
-              after: 0,
-              error: 0
-            }],
-            before: 1,
-            after: 1,
-            error: 0
-          }],
-          before: 1,
-          after: 1,
-          error: 0
-        }, {
-          name: 'resolve',
+
+      // some version of iojs use nextTick for some parts of its async
+      if (listener.root.children.length === 3) {
+        expected.children.push({
+          name: 'race',
           children: [],
           before: 1,
           after: 1,
           error: 0
-        }],
-        before: 0,
-        after: 0,
-        error: 0
-      })
+        })
+      }
+
+      t.deepEqual(listener.root, expected)
       t.end();
     });
   });
+
+  var expected = {
+    name: 'root',
+    children: [{
+      name: 'reject',
+      children: [{
+        name: 'race',
+        children: [{
+          name: 'nextTick',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
+        }],
+        before: 1,
+        after: 1,
+        error: 0
+      }],
+      before: 1,
+      after: 1,
+      error: 0
+    }, {
+      name: 'resolve',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    }],
+    before: 0,
+    after: 0,
+    error: 0
+  }
 });
 
 test('Promise.defer', function diferTest(t) {
@@ -567,6 +623,14 @@ test('Promise.defer', function diferTest(t) {
       t.end();
     });
   });
+});
+
+test('instanceof', function diferTest(t) {
+  var p = Promise.accept()
+
+  t.ok(p instanceof Promise, 'instanceof should work on wrapped Promise');
+  t.ok(p instanceof unwrappedPromise, 'instanceof should work on unwrapped Promise');
+  t.end()
 });
 
 function addListner() {
