@@ -3,12 +3,10 @@
 var fork = require('child_process').fork;
 var test = require('tap').test;
 
-test("parent listener", function (t) {
-  var server = require('net').createServer();
+var server
 
-  this.tearDown(function () {
-    server.close();
-  });
+test("parent listener", function (t) {
+  server = require('net').createServer();
 
   server.listen(8585, function () {
     t.ok(server, "parent listening on port 8585");
@@ -20,11 +18,16 @@ test("parent listener", function (t) {
       if (message === 'shutdown') {
         t.ok(message, "child handled error properly");
         listener.send('shutdown');
-        t.end();
       }
       else {
         t.fail("parent got unexpected message " + message);
       }
+      t.end();
     });
   });
 });
+
+test("tearDown", function (t) {
+  server.close();
+  t.end();
+})
