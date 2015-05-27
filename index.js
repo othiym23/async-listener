@@ -279,24 +279,19 @@ if (instrumentPromise) {
       // These wrappers create a function that can be passed a function and an argument to
       // call as a continuation from the accept or reject.
       function wrappedAccept(val) {
-        if (promise.__asl_wrapper) return accept(val);
-        promise.__asl_wrapper = wrapCallback(function(ctx, fn, result) {
-          return fn.call(ctx, result);
-        });
+        ensureAslWrapper(promise);
         return accept(val);
       }
 
       function wrappedReject(val) {
-        if (promise.__asl_wrapper) return reject(val);
-        promise.__asl_wrapper = wrapCallback(function(ctx, fn, result) {
-          return fn.call(ctx, result);
-        });
+        ensureAslWrapper(promise);
         return reject(val);
       }
     }
-  }
 
-  util.inherits(global.Promise, Promise)
+  };
+
+  util.inherits(global.Promise, Promise);
 
   wrap(Promise.prototype, 'then', wrapThen);
   wrap(Promise.prototype, 'chain', wrapThen);
@@ -308,10 +303,21 @@ if (instrumentPromise) {
   });
 }
 
+function ensureAslWrapper(promise) {
+  if (!promise.__asl_wrapper) {
+    promise.__asl_wrapper = wrapCallback(function(ctx, fn, result, next) {
+      var nextResult = fn.call(ctx, result);
+      ensureAslWrapper(next);  // Also wrap chained futures as continuations.
+      return nextResult;
+    });
+  }
+}
+
 function wrapThen(original) {
   return function wrappedThen() {
     var promise = this;
-    return original.apply(promise, Array.prototype.map.call(arguments, bind));
+    var next = original.apply(promise, Array.prototype.map.call(arguments, bind));
+    return next;
 
     // wrap callbacks (success, error) so that the callbacks will be called as a
     // continuations of the accept or reject call using the __asl__wrapper created above.
@@ -319,7 +325,7 @@ function wrapThen(original) {
       if (typeof fn !== 'function') return fn;
       return function(val) {
         if (!promise.__asl_wrapper) return fn.call(this, val);
-        return promise.__asl_wrapper(this, fn, val);
+        return promise.__asl_wrapper(this, fn, val, next);
       };
     }
   }
