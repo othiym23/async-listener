@@ -320,7 +320,7 @@ function wrapPromise() {
       return nextResult;
     } finally {
       // Wrap any resulting futures as continuations.
-      if (nextResult instanceof wrappedPromise) {
+      if (nextResult instanceof Promise) {
         next.__asl_wrapper = function proxyWrapper() {
           var aslWrapper = nextResult.__asl_wrapper || propagateAslWrapper;
           return aslWrapper.apply(this, arguments);
