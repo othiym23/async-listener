@@ -253,6 +253,56 @@ if (instrumentPromise) {
   process.removeAsyncListener(promiseListener);
 }
 
+/*
+ * Native promises use the microtask queue to make all callbacks run
+ * asynchronously to avoid Zalgo issues. Since the microtask queue is not
+ * exposed externally, promises need to be modified in a fairly invasive and
+ * complex way.
+ *
+ * The async boundary in promises that must be patched is between the
+ * fulfillment of the promise and the execution of any callback that is waiting
+ * for that fulfillment to happen. This means that we need to trigger a create
+ * when accept or reject is called and trigger before, after and error handlers
+ * around the callback execution. There may be multiple callbacks for each
+ * fulfilled promise, so handlers will behave similar to setInterval where
+ * there may be multiple before after and error calls for each create call.
+ *
+ * async-listener monkeypatching has one basic entry point: `wrapCallback`.
+ * `wrapCallback` should be called when create should be triggered and be
+ * passed a function to wrap, which will execute the body of the async work.
+ * The accept and reject calls can be modified fairly easily to call
+ * `wrapCallback`, but at the time of accept and reject all the work to be done
+ * on fulfillment may not be defined, since a call to then, chain or fetch can
+ * be made even after the promise has been fulfilled. To get around this, we
+ * create a placeholder function which will call a function passed into it,
+ * since the call to the main work is being made from within the wrapped
+ * function, async-listener will work correctly.
+ *
+ * There is another complication with monkeypatching Promises. Calls to then,
+ * chain and catch each create new Promises that are fulfilled internally in
+ * different ways depending on the return value of the callback. When the
+ * callback return a Promise, the new Promise is resolved asynchronously after
+ * the returned Promise has been also been resolved. When something other than
+ * a promise is resolved the accept call for the new Promise is put in the
+ * microtask queue and asynchronously resolved.
+ *
+ * Then must be wrapped so that its returned promise has a wrapper that can be
+ * used to invoke further continuations. This wrapper cannot be created until
+ * after the callback has run, since the callback may return either a promise
+ * or another value. Fortunately we already have a wrapper function around the
+ * callback we can use (the wrapper created by accept or reject).
+ *
+ * By adding an additional argument to this wrapper, we can pass in the
+ * returned promise so it can have its own wrapper appended. the wrapper
+ * function can the call the callback, and take action based on the return
+ * value. If a promise is returned, the new Promise can proxy the returned
+ * Promise's wrapper (this wrapper may not exist yet, but will by the time the
+ * wrapper needs to be invoked). Otherwise, a new wrapper can be create the
+ * same way as in accept and reject. Since this wrapper is created
+ * synchronously within another wrapper, it will properly appear as a
+ * continuation from within the callback.
+ */
+
 if (instrumentPromise) {
   wrapPromise();
 }
