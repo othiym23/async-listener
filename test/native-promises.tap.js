@@ -1356,6 +1356,50 @@ test('multi catch with promise', function(t) {
   }
 });
 
+test('throw in executor', function(t) {
+  var listener = addListner();
+
+  var promise = new Promise(function unsafe() {
+    listener.currentName = 'throw';
+    throw 10;
+  });
+
+  promise.catch(function(val) {
+    t.equal(val, 10, 'should match thrown value')
+    if (listener.root.children.length === 2) {
+      expected.children.splice(1, 0, {
+        name: 'throw',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      })
+    }
+
+    t.deepEqual(listener.root, expected);
+    t.end();
+  });
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [
+      {
+        name: 'throw',
+        children: [
+        ],
+        before: 1,
+        after: 0,
+        error: 0
+      }
+    ],
+    before: 0,
+    after: 0,
+    error: 0
+  }
+});
+
 function addListner() {
   var listener = process.addAsyncListener({
     create: create,

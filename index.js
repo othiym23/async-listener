@@ -272,7 +272,12 @@ function wrapPromise() {
     var context, args;
     var promise = new Promise(wrappedExecutor);
     promise.__proto__ = wrappedPromise.prototype;
-    executor.apply(context, args);
+
+    try {
+      executor.apply(context, args);
+    } catch (err) {
+      args[1](err)
+    }
 
     return promise;
 
