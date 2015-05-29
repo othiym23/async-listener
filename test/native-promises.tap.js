@@ -11,31 +11,32 @@ test('then', function(t) {
   var listener = addListner();
 
   var promise = new Promise(function(accept, reject) {
-    listener.currentName = 'accept';
+    listener.nextName = 'accept';
     accept(10);
   });
 
   promise.then(function(val) {
-    listener.currentName = 'nextTick in first then';
+    listener.nextName = 'nextTick in first then';
     process.nextTick(function() {
       t.strictEqual(val, 10);
     });
-    listener.currentName = 'first then continuation';
+    listener.nextName = 'first then continuation';
   });
 
-  listener.currentName = 'setImmediate in root';
+  listener.nextName = 'setImmediate in root';
   setImmediate(function() {
     promise.then(function(val) {
       t.strictEqual(val, 10);
       t.strictEqual(this, global);
-      listener.currentName = 'setTimeout in 2nd then';
+      listener.nextName = 'setTimeout in 2nd then';
       setTimeout(function() {
         t.deepEqual(listener.root, expected);
         t.end();
       });
-      listener.currentName = '2nd then continuation';
     });
   });
+
+  listener.nextName = 'internal promise for then';
 
   process.removeAsyncListener(listener.listener);
 
@@ -45,6 +46,13 @@ test('then', function(t) {
       {
         name: 'accept',
         children: [
+          {
+            name: 'internal promise for then',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
           {
             name: 'nextTick in first then',
             children: [],
@@ -63,13 +71,6 @@ test('then', function(t) {
             name: 'setTimeout in 2nd then',
             children: [],
             before: 1,
-            after: 0,
-            error: 0
-          },
-          {
-            name: '2nd then continuation',
-            children: [],
-            before: 0,
             after: 0,
             error: 0
           }
@@ -96,31 +97,32 @@ test('chain', function chainTest(t) {
   var listener = addListner();
 
   var promise = new Promise(function(accept, reject) {
-    listener.currentName = 'accept';
+    listener.nextName = 'accept';
     accept(10);
   });
 
   promise.chain(function(val) {
-    listener.currentName = 'nextTick in first chain';
+    listener.nextName = 'nextTick in first chain';
     process.nextTick(function() {
       t.strictEqual(val, 10);
     });
-    listener.currentName = 'first chain continuation';
+    listener.nextName = 'first chain continuation';
   });
 
-  listener.currentName = 'setImmediate in root';
+  listener.nextName = 'setImmediate in root';
   setImmediate(function() {
     promise.chain(function(val) {
       t.strictEqual(val, 10);
       t.strictEqual(this, global);
-      listener.currentName = 'setTimeout in 2nd chain';
+      listener.nextName = 'setTimeout in 2nd chain';
       setTimeout(function() {
         t.deepEqual(listener.root, expected);
         t.end();
       });
-      listener.currentName = '2nd chain continuation';
     });
   });
+
+  listener.nextName = 'internal promise for chain'
 
   process.removeAsyncListener(listener.listener);
 
@@ -130,6 +132,13 @@ test('chain', function chainTest(t) {
       {
         name: 'accept',
         children: [
+          {
+            name: 'internal promise for chain',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
           {
             name: 'nextTick in first chain',
             children: [],
@@ -148,13 +157,6 @@ test('chain', function chainTest(t) {
             name: 'setTimeout in 2nd chain',
             children: [],
             before: 1,
-            after: 0,
-            error: 0
-          },
-          {
-            name: '2nd chain continuation',
-            children: [],
-            before: 0,
             after: 0,
             error: 0
           }
@@ -177,24 +179,25 @@ test('chain', function chainTest(t) {
   }
 });
 
+
 test('catch', function(t) {
   var listener = addListner();
 
   var promise = new Promise(function(accept, reject) {
-    listener.currentName = 'reject';
+    listener.nextName = 'reject';
     reject(15);
   });
 
-  listener.currentName = 'catch';
+  listener.nextName = 'catch';
   promise.catch(function(val) {
-    listener.currentName = 'nextTick in catch';
+    listener.nextName = 'nextTick in catch';
     process.nextTick(function() {
       t.strictEqual(val, 15);
     });
-    listener.currentName = 'catch continuation';
+    listener.nextName = 'catch continuation';
   });
 
-  listener.currentName = 'setImmediate in root';
+  listener.nextName = 'setImmediate in root';
   setImmediate(function() {
     promise.then(
       function fullfilled() {
@@ -203,7 +206,7 @@ test('catch', function(t) {
       function rejected(val) {
         t.strictEqual(val, 15);
         t.strictEqual(this, global);
-        listener.currentName = 'setTimeout in then';
+        listener.nextName = 'setTimeout in then';
         setTimeout(function() {
           // some version of iojs use nextTick for some parts of its async
           if (listener.root.children.length === 3) {
@@ -218,10 +221,11 @@ test('catch', function(t) {
           t.deepEqual(listener.root, expected);
           t.end();
         });
-        listener.currentName = 'then continuation';
       }
     )
   });
+
+  listener.nextName = 'internal promise for catch';
 
   process.removeAsyncListener(listener.listener);
 
@@ -231,6 +235,13 @@ test('catch', function(t) {
       {
         name: 'reject',
         children: [
+          {
+            name: 'internal promise for catch',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
           {
             name: 'nextTick in catch',
             children: [],
@@ -249,13 +260,6 @@ test('catch', function(t) {
             name: 'setTimeout in then',
             children: [],
             before: 1,
-            after: 0,
-            error: 0
-          },
-          {
-            name: 'then continuation',
-            children: [],
-            before: 0,
             after: 0,
             error: 0
           }
@@ -281,24 +285,31 @@ test('catch', function(t) {
 test('future chains', function futureChainTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'resolve';
+  listener.nextName = 'resolve';
   var promise = Promise.resolve();
 
+  // listener.currenName set the name of the next Promise to be create, it may
+  // (and will in this case) be part of a different continuation chain.
+
+  // could not find a way to properly naming 3rd then/chain
   promise
-    .then(function() { listener.currentName = '1st then'; })
-    .then(function() { listener.currentName = '2nd then'; })
-    .then(function() { listener.currentName = '3rd then'; });
+    .then(function() { })
+    .then(function() { listener.current.name = '1st then'; listener.nextName = '3rd'})
+    .then(function() { listener.current.name = '2nd then'; });
 
   promise
-    .chain(function() { listener.currentName = '1st chain'; })
-    .chain(function() { listener.currentName = '2nd chain'; })
-    .chain(function() { listener.currentName = '3rd chain'; });
+    .chain(function() {  })
+    .chain(function() { listener.current.name = '1st chain'; listener.nextName = '3rd' })
+    .chain(function() { listener.current.name = '2nd chain'; });
 
-  listener.currentName = 'setTimeout';
+
+  listener.nextName = 'setTimeout';
   setTimeout(function() {
     t.deepEqual(listener.root, expected);
     t.end();
   });
+
+  listener.nextName = 'unknown';
 
   process.removeAsyncListener(listener.listener);
 
@@ -315,8 +326,9 @@ test('future chains', function futureChainTest(t) {
                 name: '2nd then',
                 children: [
                   {
-                    name: '3rd then',
-                    children: [],
+                    name: '3rd',
+                    children: [
+                    ],
                     before: 0,
                     after: 0,
                     error: 0
@@ -338,8 +350,9 @@ test('future chains', function futureChainTest(t) {
                 name: '2nd chain',
                 children: [
                   {
-                    name: '3rd chain',
-                    children: [],
+                    name: '3rd',
+                    children: [
+                    ],
                     before: 0,
                     after: 0,
                     error: 0
@@ -376,18 +389,26 @@ test('future chains', function futureChainTest(t) {
 test('Promise.resolve', function resolveTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'resolve';
+  listener.nextName = 'resolve';
   var p = Promise.resolve(123);
 
+  listener.nextName = 'internal then'
+
   p.then(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       t.equal(value, 123);
       t.deepEqual(listener.root, {
         name: 'root',
         children: [{
-            name: 'resolve',
+          name: 'resolve',
           children: [{
+            name: 'internal then',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          }, {
             name: 'nextTick',
             children: [],
             before: 1,
@@ -411,11 +432,13 @@ test('Promise.resolve', function resolveTest(t) {
 test('Promise.accept', function acceptTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'accept';
+  listener.nextName = 'accept';
   var p = Promise.accept(123);
 
+  listener.nextName = 'internal then';
+
   p.then(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       t.equal(value, 123);
       t.deepEqual(listener.root, {
@@ -424,16 +447,16 @@ test('Promise.accept', function acceptTest(t) {
           name: 'accept',
           children: [
             {
-              name: 'nextTick',
+              name: 'internal then',
               children: [],
-              before: 1,
+              before: 0,
               after: 0,
               error: 0
             },
             {
-              name: 'then continuation',
+              name: 'nextTick',
               children: [],
-              before: 0,
+              before: 1,
               after: 0,
               error: 0
             }
@@ -449,7 +472,7 @@ test('Promise.accept', function acceptTest(t) {
       t.end();
     });
 
-    listener.currentName = 'then continuation';
+    listener.nextName = 'then continuation';
   });
 
   process.removeAsyncListener(listener.listener);
@@ -458,12 +481,13 @@ test('Promise.accept', function acceptTest(t) {
 test('Promise.reject', function rejectTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'reject';
+  listener.nextName = 'reject';
   var p = Promise.reject(123);
 
-  listener.currentName = 'catch';
+  listener.nextName = 'catch';
+
   p.catch(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       t.equal(value, 123);
 
@@ -482,7 +506,7 @@ test('Promise.reject', function rejectTest(t) {
       t.end();
     });
 
-    listener.currentName = 'catch continuation';
+    listener.nextName = 'catch continuation';
   });
 
   process.removeAsyncListener(listener.listener);
@@ -493,16 +517,16 @@ test('Promise.reject', function rejectTest(t) {
       name: 'reject',
       children: [
         {
-          name: 'nextTick',
+          name: 'catch',
           children: [],
-          before: 1,
+          before: 0,
           after: 0,
           error: 0
         },
         {
-          name: 'catch continuation',
+          name: 'nextTick',
           children: [],
-          before: 0,
+          before: 1,
           after: 0,
           error: 0
         }
@@ -520,15 +544,17 @@ test('Promise.reject', function rejectTest(t) {
 test('Promise.all', function allTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'resolve 1';
+  listener.nextName = 'resolve 1';
   var a = Promise.resolve(123);
-  listener.currentName = 'resolve 2';
+  listener.nextName = 'resolve 2';
   var b = Promise.resolve(456);
-  listener.currentName = 'all';
+  listener.nextName = 'all';
   var p = Promise.all([a, b]);
 
+  listener.nextName = 'internal promise creation'
+
   p.then(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       process.removeAsyncListener(listener.listener);
       t.deepEqual(value, [123, 456]);
@@ -538,7 +564,7 @@ test('Promise.all', function allTest(t) {
           name: 'resolve 1',
           children: [{
             // Internal continuation of a used for making the race future.
-            name: 'all',
+            name: 'internal promise creation',
             children: [],
             before: 0,
             after: 0,
@@ -551,19 +577,32 @@ test('Promise.all', function allTest(t) {
           name: 'resolve 2',
           children: [
             {
-              name: 'all',
+              // Internal continuation of b used for making the race future.
+              name: 'internal promise creation',
+              children: [
+              ],
+              before: 0,
+              after: 0,
+              error: 0
+            },
+            {
+              // Internal continuation of b used for making the race future.
+              name: 'internal promise creation',
               children: [
                 {
-                  name: 'nextTick',
-                  children: [],
-                  before: 1,
+                  // Internal continuation of b used for making the race future.
+                  name: 'internal promise creation',
+                  children: [
+                  ],
+                  before: 0,
                   after: 0,
                   error: 0
                 },
                 {
-                  name: 'then continuation',
-                  children: [],
-                  before: 0,
+                  name: 'nextTick',
+                  children: [
+                  ],
+                  before: 1,
                   after: 0,
                   error: 0
                 }
@@ -572,14 +611,6 @@ test('Promise.all', function allTest(t) {
               after: 1,
               error: 0
             },
-            {
-              // Internal continuation of b used for making the race future.
-              name: 'all',
-              children: [],
-              before: 0,
-              after: 0,
-              error: 0
-            }
           ],
           before: 1,
           after: 1,
@@ -591,23 +622,21 @@ test('Promise.all', function allTest(t) {
       });
       t.end();
     });
-
-    listener.currentName = 'then continuation';
   });
 });
 
 test('Promise.all reject', function allTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'resolve';
+  listener.nextName = 'resolve';
   var a = Promise.resolve(123);
-  listener.currentName = 'reject';
+  listener.nextName = 'reject';
   var b = Promise.reject(456);
-  listener.currentName = 'all';
+  listener.nextName = 'all';
   var p = Promise.all([a, b]);
 
   p.catch(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       // some version of iojs use nextTick for some parts of its async
       if (listener.root.children.length === 3) {
@@ -626,8 +655,10 @@ test('Promise.all reject', function allTest(t) {
       t.end();
     });
 
-    listener.currentName = 'catch continuation';
+    listener.nextName = 'catch continuation';
   });
+
+  listener.nextName = 'internal promise';
 
   var expected = {
     name: 'root',
@@ -635,7 +666,7 @@ test('Promise.all reject', function allTest(t) {
       name: 'resolve',
       children: [{
         // Internal continuation of a used for making the race future.
-        name: 'all',
+        name: 'internal promise',
         children: [],
         before: 0,
         after: 0,
@@ -648,33 +679,33 @@ test('Promise.all reject', function allTest(t) {
       name: 'reject',
       children: [
         {
-          name: 'all',
+          name: 'internal promise',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          // Internal continuation of b used for making the race future.
+          name: 'internal promise',
           children: [
+            {
+              name: 'internal promise',
+              children: [],
+              before: 0,
+              after: 0,
+              error: 0
+            },
             {
               name: 'nextTick',
               children: [],
               before: 1,
               after: 0,
               error: 0
-            },
-            {
-              name: 'catch continuation',
-              children: [],
-              before: 0,
-              after: 0,
-              error: 0
             }
           ],
           before: 1,
           after: 1,
-          error: 0
-        },
-        {
-          // Internal continuation of b used for making the race future.
-          name: 'all',
-          children: [],
-          before: 0,
-          after: 0,
           error: 0
         }
       ],
@@ -691,15 +722,17 @@ test('Promise.all reject', function allTest(t) {
 test('Promise.race', function raceTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'resolve 1';
+  listener.nextName = 'resolve 1';
   var a = Promise.resolve(123);
-  listener.currentName = 'resolve 2';
+  listener.nextName = 'resolve 2';
   var b = Promise.resolve(456);
-  listener.currentName = 'race';
+  listener.nextName = 'race';
   var p = Promise.race([a, b]);
 
+  listener.nextName = 'internal promise';
+
   p.then(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       process.removeAsyncListener(listener.listener);
       t.equal(value, 123);
@@ -709,33 +742,32 @@ test('Promise.race', function raceTest(t) {
           name: 'resolve 1',
           children: [
             {
-              name: 'race',
+              name: 'internal promise',
+              children: [],
+              before: 0,
+              after: 0,
+              error: 0
+            },
+            {
+              name: 'internal promise',
               children: [
+                {
+                  name: 'internal promise',
+                  children: [],
+                  before: 0,
+                  after: 0,
+                  error: 0
+                },
                 {
                   name: 'nextTick',
                   children: [],
                   before: 1,
                   after: 0,
                   error: 0
-                },
-                {
-                  name: 'then continuation',
-                  children: [],
-                  before: 0,
-                  after: 0,
-                  error: 0
                 }
               ],
               before: 1,
               after: 1,
-              error: 0
-            },
-            {
-              // Internal continuation of a used for making the race future.
-              name: 'race',
-              children: [],
-              before: 0,
-              after: 0,
               error: 0
             }
           ],
@@ -746,7 +778,7 @@ test('Promise.race', function raceTest(t) {
           name: 'resolve 2',
           children: [{
             // Internal continuation of b used for making the race future.
-            name: 'race',
+            name: 'internal promise',
             children: [],
             before: 0,
             after: 0,
@@ -763,22 +795,24 @@ test('Promise.race', function raceTest(t) {
       t.end();
     });
 
-    listener.currentName = 'then continuation';
+    listener.nextName = 'then continuation';
   });
 });
 
 test('Promise.race - reject', function raceTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'reject';
+  listener.nextName = 'reject';
   var a = Promise.reject(123);
-  listener.currentName = 'resolve';
+  listener.nextName = 'resolve';
   var b = Promise.resolve(456);
-  listener.currentName = 'race';
+  listener.nextName = 'race';
   var p = Promise.race([a, b]);
 
+  listener.nextName = 'internal promise'
+
   p.catch(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       process.removeAsyncListener(listener.listener);
       t.equal(value, 123);
@@ -798,7 +832,7 @@ test('Promise.race - reject', function raceTest(t) {
       t.end();
     });
 
-    listener.currentName = 'catch continuation';
+    listener.nextName = 'catch continuation';
   });
 
   var expected = {
@@ -807,33 +841,30 @@ test('Promise.race - reject', function raceTest(t) {
       name: 'reject',
       children: [
         {
-          name: 'race',
-          children: [
+          name: 'internal promise',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'internal promise',
+          children: [  {
+              name: 'internal promise',
+              children: [],
+              before: 0,
+              after: 0,
+              error: 0
+            },
             {
               name: 'nextTick',
               children: [],
               before: 1,
               after: 0,
               error: 0
-            },
-            {
-              name: 'catch continuation',
-              children: [],
-              before: 0,
-              after: 0,
-              error: 0
-            }
-          ],
+            }],
           before: 1,
           after: 1,
-          error: 0
-        },
-        {
-          // Internal continuation of a used for making the race future.
-          name: 'race',
-          children: [],
-          before: 0,
-          after: 0,
           error: 0
         }
       ],
@@ -843,8 +874,7 @@ test('Promise.race - reject', function raceTest(t) {
     }, {
       name: 'resolve',
       children: [{
-        // Internal continuation of b used for making the race future.
-        name: 'race',
+        name: 'internal promise',
         children: [],
         before: 0,
         after: 0,
@@ -863,15 +893,17 @@ test('Promise.race - reject', function raceTest(t) {
 test('Promise.defer', function diferTest(t) {
   var listener = addListner();
 
-  listener.currentName = 'defer';
+  listener.nextName = 'defer';
   var p = Promise.defer();
-  listener.currentName = 'resolve';
+  listener.nextName = 'resolve';
   p.resolve(123);
-  listener.currentName = 'reject';
+  listener.nextName = 'reject';
   p.reject(456);
 
+  listener.nextName = 'internal promise'
+
   p.promise.then(function then(value) {
-    listener.currentName = 'nextTick';
+    listener.nextName = 'nextTick';
     process.nextTick(function next() {
       process.removeAsyncListener(listener.listener);
       t.equal(value, 123);
@@ -881,16 +913,16 @@ test('Promise.defer', function diferTest(t) {
           name: 'resolve',
           children: [
             {
-              name: 'nextTick',
+              name: 'internal promise',
               children: [],
-              before: 1,
+              before: 0,
               after: 0,
               error: 0
             },
             {
-              name: 'then continuation',
+              name: 'nextTick',
               children: [],
-              before: 0,
+              before: 1,
               after: 0,
               error: 0
             }
@@ -906,7 +938,7 @@ test('Promise.defer', function diferTest(t) {
       t.end();
     });
 
-    listener.currentName = 'then continuation';
+    listener.nextName = 'then continuation';
   });
 });
 
@@ -916,6 +948,472 @@ test('instanceof', function diferTest(t) {
   t.ok(p instanceof Promise, 'instanceof should work on wrapped Promise');
   t.ok(p instanceof unwrappedPromise, 'instanceof should work on unwrapped Promise');
   t.end()
+});
+
+test('then chain with promise', function(t) {
+  var listener = addListner();
+
+  listener.nextName = 'accept'
+  var promise = Promise.accept(10);
+
+  listener.nextName = 'internal promise'
+
+  promise.then(function(val) {
+    return new Promise(function wait(accept) {
+      listener.nextName = 'nextTick in nested promise';
+      process.nextTick(function() {
+        listener.nextName = 'accept from nextTick';
+        accept(val);
+        listener.nextName = 'internal promise after accept';
+      });
+    });
+  }).then(function validate(val) {
+    t.strictEqual(val, 10);
+    t.strictEqual(this, global);
+    listener.nextName = 'setTimeout in 2nd then';
+    setTimeout(function() {
+      t.deepEqual(listener.root, expected);
+      t.end();
+    });
+  });
+
+  listener.nextName = 'internal promise for then';
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [
+      {
+        name: 'accept',
+        children: [
+          {
+            name: 'internal promise for then',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
+          {
+            name: 'nextTick in nested promise',
+            children: [
+              {
+                name: 'accept from nextTick',
+                children: [
+                  {
+                    name: 'internal promise after accept',
+                    children: [],
+                    before: 0,
+                    after: 0,
+                    error: 0
+                  },
+                  {
+                    name: 'setTimeout in 2nd then',
+                    children: [],
+                    before: 1,
+                    after: 0,
+                    error: 0
+                  }
+                ],
+                before: 1,
+                after: 1,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
+        before: 1,
+        after: 1,
+        error: 0
+      }
+    ],
+    before: 0,
+    after: 0,
+    error: 0
+  }
+});
+
+test('multi chain with promise', function(t) {
+  var listener = addListner();
+
+  listener.nextName = 'accept'
+  var promise = Promise.accept(10);
+
+  listener.nextName = 'internal promise'
+
+  promise.chain(function(val) {
+    return new Promise(function wait(accept) {
+      listener.nextName = 'nextTick in nested promise';
+      process.nextTick(function() {
+        listener.nextName = 'accept from nextTick';
+        accept(val);
+        listener.nextName = 'internal promise after accept';
+      });
+    });
+  }).chain(function validate(val) {
+    t.strictEqual(val, 10);
+    t.strictEqual(this, global);
+    listener.nextName = 'setTimeout in 2nd chain';
+    setTimeout(function() {
+      t.deepEqual(listener.root, expected);
+      t.end();
+    });
+  });
+
+  listener.nextName = 'internal promise for chain';
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [
+      {
+        name: 'accept',
+        children: [
+          {
+            name: 'internal promise for chain',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
+          {
+            name: 'nextTick in nested promise',
+            children: [
+              {
+                name: 'accept from nextTick',
+                children: [
+                  {
+                    name: 'internal promise after accept',
+                    children: [],
+                    before: 0,
+                    after: 0,
+                    error: 0
+                  },
+                  {
+                    name: 'setTimeout in 2nd chain',
+                    children: [],
+                    before: 1,
+                    after: 0,
+                    error: 0
+                  }
+                ],
+                before: 1,
+                after: 1,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
+        before: 1,
+        after: 1,
+        error: 0
+      }
+    ],
+    before: 0,
+    after: 0,
+    error: 0
+  }
+});
+
+test('then chain with rejected promise', function(t) {
+  var listener = addListner();
+
+  listener.nextName = 'reject'
+  var promise = Promise.reject(10);
+
+  listener.nextName = 'internal promise'
+
+  promise.then(fail, function(val) {
+    return new Promise(function wait(accept, reject) {
+      listener.nextName = 'nextTick in nested promise';
+      process.nextTick(function() {
+        listener.nextName = 'reject from nextTick';
+        reject(val);
+        listener.nextName = 'internal promise after reject';
+      });
+    });
+  }).then(fail, function validate(val) {
+    t.strictEqual(val, 10);
+    t.strictEqual(this, global);
+    listener.nextName = 'setTimeout in 2nd then';
+    setTimeout(function() {
+      t.deepEqual(listener.root, expected);
+      t.end();
+    });
+  });
+
+  function fail() {
+    t.fail('should not be called');
+    t.end();
+  }
+
+  listener.nextName = 'internal promise for then';
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [
+      {
+        name: 'reject',
+        children: [
+          {
+            name: 'internal promise for then',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
+          {
+            name: 'nextTick in nested promise',
+            children: [
+              {
+                name: 'reject from nextTick',
+                children: [
+                  {
+                    name: 'internal promise after reject',
+                    children: [],
+                    before: 0,
+                    after: 0,
+                    error: 0
+                  },
+                  {
+                    name: 'setTimeout in 2nd then',
+                    children: [],
+                    before: 1,
+                    after: 0,
+                    error: 0
+                  }
+                ],
+                before: 1,
+                after: 1,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'internal promise',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      }
+    ],
+    before: 0,
+    after: 0,
+    error: 0
+  }
+});
+
+test('multi chain with rejected promise', function(t) {
+  var listener = addListner();
+
+  listener.nextName = 'reject'
+  var promise = Promise.reject(10);
+
+  listener.nextName = 'internal promise'
+
+  promise.chain(fail, function(val) {
+    return new Promise(function wait(accept, reject) {
+      listener.nextName = 'nextTick in nested promise';
+      process.nextTick(function() {
+        listener.nextName = 'reject from nextTick';
+        reject(val);
+        listener.nextName = 'internal promise after reject';
+      });
+    });
+  }).chain(fail, function validate(val) {
+    t.strictEqual(val, 10);
+    t.strictEqual(this, global);
+    listener.nextName = 'setTimeout in 2nd chain';
+    setTimeout(function() {
+      t.deepEqual(listener.root, expected);
+      t.end();
+    });
+  });
+
+  function fail() {
+    t.fail('should not be called');
+    t.end();
+  }
+
+  listener.nextName = 'internal promise for chain';
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [
+      {
+        name: 'reject',
+        children: [
+          {
+            name: 'internal promise for chain',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
+          {
+            name: 'nextTick in nested promise',
+            children: [
+              {
+                name: 'reject from nextTick',
+                children: [
+                  {
+                    name: 'internal promise after reject',
+                    children: [],
+                    before: 0,
+                    after: 0,
+                    error: 0
+                  },
+                  {
+                    name: 'setTimeout in 2nd chain',
+                    children: [],
+                    before: 1,
+                    after: 0,
+                    error: 0
+                  }
+                ],
+                before: 1,
+                after: 1,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'internal promise',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      }
+    ],
+    before: 0,
+    after: 0,
+    error: 0
+  }
+});
+
+test('multi catch with promise', function(t) {
+  var listener = addListner();
+
+  listener.nextName = 'reject'
+  var promise = Promise.reject(10);
+
+  listener.nextName = 'internal promise'
+
+  promise.catch(function(val) {
+    return new Promise(function wait(accept, reject) {
+      listener.nextName = 'nextTick in nested promise';
+      process.nextTick(function() {
+        listener.nextName = 'reject from nextTick';
+        reject(val);
+        listener.nextName = 'internal promise after reject';
+      });
+    });
+  }).catch(function validate(val) {
+    t.strictEqual(val, 10);
+    t.strictEqual(this, global);
+    listener.nextName = 'setTimeout in 2nd chain';
+    setTimeout(function() {
+      t.deepEqual(listener.root, expected);
+      t.end();
+    });
+  });
+
+  function fail() {
+    t.fail('should not be called');
+    t.end();
+  }
+
+  listener.nextName = 'internal promise for chain';
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [
+      {
+        name: 'reject',
+        children: [
+          {
+            name: 'internal promise for chain',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
+          {
+            name: 'nextTick in nested promise',
+            children: [
+              {
+                name: 'reject from nextTick',
+                children: [
+                  {
+                    name: 'internal promise after reject',
+                    children: [],
+                    before: 0,
+                    after: 0,
+                    error: 0
+                  },
+                  {
+                    name: 'setTimeout in 2nd chain',
+                    children: [],
+                    before: 1,
+                    after: 0,
+                    error: 0
+                  }
+                ],
+                before: 1,
+                after: 1,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'internal promise',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      }
+    ],
+    before: 0,
+    after: 0,
+    error: 0
+  }
 });
 
 function addListner() {
@@ -929,7 +1427,7 @@ function addListner() {
 
   var state = {
     listener: listener,
-    currentName: 'root'
+    nextName: 'root'
   };
 
   state.root = create();
@@ -939,14 +1437,14 @@ function addListner() {
 
   function create () {
     var node = {
-      name: state.currentName,
+      name: state.nextName,
       children: [],
       before: 0,
       after: 0,
-      error: 0
+      error: 0,
     };
 
-    if(state.current) state.current.children.push(node);
+    if (state.current) state.current.children.push(node);
     return node;
   }
 

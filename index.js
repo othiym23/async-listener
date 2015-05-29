@@ -305,12 +305,24 @@ if (instrumentPromise) {
 
 function ensureAslWrapper(promise) {
   if (!promise.__asl_wrapper) {
-    promise.__asl_wrapper = wrapCallback(function(ctx, fn, result, next) {
+    promise.__asl_wrapper = wrapCallback(function aslWrapper(ctx, fn, result, next) {
+      ensureAslWrapper(next);
+
       var nextResult = fn.call(ctx, result);
-      ensureAslWrapper(next);  // Also wrap chained futures as continuations.
+
+      if (nextResult instanceof Promise) {
+        next.__asl_wrapper = function proxyWrapper() {
+          return (nextResult.__asl_wrapper || defaultASLWrapper).apply(this, arguments);
+        }
+      }
+
       return nextResult;
     });
   }
+}
+
+function defaultASLWrapper(ctx, fn, result) {
+  return fn.call(ctx, result)
 }
 
 function wrapThen(original) {
@@ -320,7 +332,7 @@ function wrapThen(original) {
     return next;
 
     // wrap callbacks (success, error) so that the callbacks will be called as a
-    // continuations of the accept or reject call using the __asl__wrapper created above.
+    // continuations of the accept or reject call using the __asl_wrapper created above.
     function bind(fn) {
       if (typeof fn !== 'function') return fn;
       return function(val) {
