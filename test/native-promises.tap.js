@@ -1098,6 +1098,17 @@ test('then chain with rejected promise', function(t) {
 
       listener.currentName = 'setTimeout in 2nd then';
       setTimeout(function() {
+        // some version of iojs use nextTick for some parts of its async
+        if (listener.root.children.length === 2) {
+          expected.children.splice(1, 0, {
+            name: 'reject',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          })
+        }
+
         t.deepEqual(listener.root, expected);
         t.end();
       });
@@ -1182,6 +1193,17 @@ test('multi chain with rejected promise', function(t) {
 
       listener.currentName = 'setTimeout in 2nd chain';
       setTimeout(function() {
+        // some version of iojs use nextTick for some parts of its async
+        if (listener.root.children.length === 2) {
+          expected.children.splice(1, 0, {
+            name: 'reject',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          })
+        }
+
         t.deepEqual(listener.root, expected);
         t.end();
       });
@@ -1266,6 +1288,17 @@ test('multi catch with promise', function(t) {
 
       listener.currentName = 'setTimeout in 2nd catch';
       setTimeout(function() {
+        // some version of iojs use nextTick for some parts of its async
+        if (listener.root.children.length === 2) {
+          expected.children.splice(1, 0, {
+            name: 'reject',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          })
+        }
+
         t.deepEqual(listener.root, expected);
         t.end();
       });
