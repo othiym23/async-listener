@@ -254,9 +254,13 @@ if (instrumentPromise) {
 }
 
 if (instrumentPromise) {
+  wrapPromise();
+}
+
+function wrapPromise() {
   var Promise = global.Promise;
 
-  global.Promise = function wrappedPromise(executor) {
+  function wrappedPromise(executor) {
     if (!(this instanceof wrappedPromise)) {
       return Promise(executor);
     }
@@ -288,10 +292,9 @@ if (instrumentPromise) {
         return reject(val);
       }
     }
+  }
 
-  };
-
-  util.inherits(global.Promise, Promise);
+  util.inherits(wrappedPromise, Promise);
 
   wrap(Promise.prototype, 'then', wrapThen);
   wrap(Promise.prototype, 'chain', wrapThen);
@@ -299,46 +302,50 @@ if (instrumentPromise) {
   var PromiseMethods = ['accept', 'all', 'defer', 'race', 'reject', 'resolve'];
 
   PromiseMethods.forEach(function(key) {
-    global.Promise[key] = Promise[key];
+    wrappedPromise[key] = Promise[key];
   });
-}
 
-function ensureAslWrapper(promise) {
-  if (!promise.__asl_wrapper) {
-    promise.__asl_wrapper = wrapCallback(function aslWrapper(ctx, fn, result, next) {
-      ensureAslWrapper(next);
+  global.Promise = wrappedPromise;
 
-      var nextResult = fn.call(ctx, result);
-
-      if (nextResult instanceof Promise) {
-        next.__asl_wrapper = function proxyWrapper() {
-          return (nextResult.__asl_wrapper || defaultASLWrapper).apply(this, arguments);
-        }
-      }
-
-      return nextResult;
-    });
+  function ensureAslWrapper(promise) {
+    if (!promise.__asl_wrapper) {
+      promise.__asl_wrapper = wrapCallback(propagateAslWrapper);
+    }
   }
-}
 
-function defaultASLWrapper(ctx, fn, result) {
-  return fn.call(ctx, result)
-}
+  function propagateAslWrapper(ctx, fn, result, next) {
+    var nextResult;
+    try {
+      nextResult = fn.call(ctx, result);
+      return nextResult;
+    } finally {
+      // Wrap any resulting futures as continuations.
+      if (nextResult instanceof wrappedPromise) {
+        next.__asl_wrapper = function proxyWrapper() {
+          var aslWrapper = nextResult.__asl_wrapper || propagateAslWrapper;
+          return aslWrapper.apply(this, arguments);
+        }
+      } else {
+        ensureAslWrapper(next);
+      }
+    }
+  }
 
-function wrapThen(original) {
-  return function wrappedThen() {
-    var promise = this;
-    var next = original.apply(promise, Array.prototype.map.call(arguments, bind));
-    return next;
+  function wrapThen(original) {
+    return function wrappedThen() {
+      var promise = this;
+      var next = original.apply(promise, Array.prototype.map.call(arguments, bind));
+      return next;
 
-    // wrap callbacks (success, error) so that the callbacks will be called as a
-    // continuations of the accept or reject call using the __asl_wrapper created above.
-    function bind(fn) {
-      if (typeof fn !== 'function') return fn;
-      return function(val) {
-        if (!promise.__asl_wrapper) return fn.call(this, val);
-        return promise.__asl_wrapper(this, fn, val, next);
-      };
+      // wrap callbacks (success, error) so that the callbacks will be called as a
+      // continuations of the accept or reject call using the __asl_wrapper created above.
+      function bind(fn) {
+        if (typeof fn !== 'function') return fn;
+        return function (val) {
+          if (!promise.__asl_wrapper) return fn.call(this, val);
+          return promise.__asl_wrapper(this, fn, val, next);
+        };
+      }
     }
   }
 }
