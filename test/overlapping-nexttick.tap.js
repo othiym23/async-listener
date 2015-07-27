@@ -177,7 +177,7 @@ test("overlapping requests", function (t) {
       t.ok(getTransaction(), "transaction should be visible");
 
       first = getTransaction().id;
-      process.nextTick(function () { handler(first); });
+      process.nextTick(function () { handler(first); }, 42);
     });
     proxied();
 
@@ -186,7 +186,7 @@ test("overlapping requests", function (t) {
 
       var second = getTransaction().id;
       t.notEqual(first, second, "different transaction IDs");
-      process.nextTick(function () { handler(second); });
-    }));
+      process.nextTick(function () { handler(second); }, 42);
+    }), 42);
   });
 });

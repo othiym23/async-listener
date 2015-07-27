@@ -97,7 +97,7 @@ if (!process._fatalException) {
   process._originalNextTick = process.nextTick;
 }
 
-var processors = ['nextTick'];
+var processors = [];
 if (process._nextDomainTick) processors.push('_nextDomainTick');
 if (process._tickDomainCallback) processors.push('_tickDomainCallback');
 
@@ -106,6 +106,7 @@ massWrap(
   processors,
   activator
 );
+wrap(process, 'nextTick', activatorFirst);
 
 var asynchronizers = [
   'setTimeout',
