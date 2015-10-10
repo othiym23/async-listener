@@ -90,7 +90,7 @@ function union(dest, added) {
 // 0.9+
 if (process._fatalException) {
   /**
-   * Error handlers on listeners can throw, the the catcher needs to be able to
+   * Error handlers on listeners can throw, the catcher needs to be able to
    * discriminate between exceptions thrown by user code, and exceptions coming
    * from within the catcher itself. Use a global to keep track of which state
    * the catcher is currently in.
