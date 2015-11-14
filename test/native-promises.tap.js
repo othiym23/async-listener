@@ -1400,6 +1400,86 @@ test('throw in executor', function(t) {
   }
 });
 
+test('Promise.resolve().catch().then()', function (t) {
+  var listenerState = addListner();
+
+  t.plan(1);
+  listenerState.currentName = 'resolve'
+  var p = Promise.resolve(1)
+
+  listenerState.currentName = 'return of 1st catch that didnt get run'
+  p = p.catch(function () {})
+
+  p = p.then(function () {
+    listenerState.currentName = 'returned by 1st then'
+    throw new Error()
+  })
+
+  p = p.catch(function () {
+    listenerState.currentName = 'returned by 2nd catch'
+    throw new Error
+  });
+
+  p = p.then(function () {}, function () {
+    listenerState.currentName = 'returned by 2nd then'
+    throw new Error()
+  });
+
+  p = p.catch(function () {
+    t.deepEqual(listenerState.root, expected);
+  });
+
+  var expected = {
+      name: 'root',
+      children: [
+        {
+          name: 'resolve',
+          children: [
+            {
+              name: 'return of 1st catch that didnt get run',
+              children: [
+                {
+                  name: 'returned by 1st then',
+                  children: [
+                    {
+                      name: 'returned by 2nd catch',
+                      children: [
+                        {
+                          name: 'returned by 2nd then',
+                          children: [],
+                          before: 1,
+                          after: 0,
+                          error: 0
+                        }
+                      ],
+                      before: 1,
+                      after: 1,
+                      error: 0
+                    }
+                  ],
+                  before: 1,
+                  after: 1,
+                  error: 0
+                }
+              ],
+              before: 1,
+              after: 1,
+              error: 0
+            }
+          ],
+          before: 1,
+          after: 1,
+          error: 0
+        }
+      ],
+      before: 0,
+      after: 0,
+      error: 0
+    }
+
+    process.removeAsyncListener(listenerState.listener);
+});
+
 function addListner() {
   var listener = process.addAsyncListener({
     create: create,

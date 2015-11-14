@@ -339,12 +339,12 @@ function wrapPromise() {
       // These wrappers create a function that can be passed a function and an argument to
       // call as a continuation from the accept or reject.
       function wrappedAccept(val) {
-        ensureAslWrapper(promise);
+        ensureAslWrapper(promise, false);
         return accept(val);
       }
 
       function wrappedReject(val) {
-        ensureAslWrapper(promise);
+        ensureAslWrapper(promise, false);
         return reject(val);
       }
     }
@@ -363,8 +363,8 @@ function wrapPromise() {
 
   global.Promise = wrappedPromise;
 
-  function ensureAslWrapper(promise) {
-    if (!promise.__asl_wrapper) {
+  function ensureAslWrapper(promise, overwrite) {
+    if (!promise.__asl_wrapper || overwrite) {
       promise.__asl_wrapper = wrapCallback(propagateAslWrapper);
     }
   }
@@ -373,7 +373,9 @@ function wrapPromise() {
     var nextResult;
     try {
       nextResult = fn.call(ctx, result);
-      return nextResult;
+      return {returnVal: nextResult, error: false}
+    } catch (err) {
+      return {errorVal: err, error: true}
     } finally {
       // Wrap any resulting futures as continuations.
       if (nextResult instanceof Promise) {
@@ -382,7 +384,7 @@ function wrapPromise() {
           return aslWrapper.apply(this, arguments);
         }
       } else {
-        ensureAslWrapper(next);
+        ensureAslWrapper(next, true);
       }
     }
   }
@@ -391,6 +393,12 @@ function wrapPromise() {
     return function wrappedThen() {
       var promise = this;
       var next = original.apply(promise, Array.prototype.map.call(arguments, bind));
+
+      next.__asl_wrapper = function proxyWrapper(ctx, fn, val, last) {
+        promise.__asl_wrapper(ctx, function () {}, null, next)
+        return next.__asl_wrapper(ctx, fn, val, last)
+      }
+
       return next;
 
       // wrap callbacks (success, error) so that the callbacks will be called as a
@@ -399,7 +407,12 @@ function wrapPromise() {
         if (typeof fn !== 'function') return fn;
         return function (val) {
           if (!promise.__asl_wrapper) return fn.call(this, val);
-          return promise.__asl_wrapper(this, fn, val, next);
+          var result = promise.__asl_wrapper(this, fn, val, next);
+          if (result.error) {
+            throw result.errorVal
+          } else {
+            return result.returnVal
+          }
         };
       }
     }
