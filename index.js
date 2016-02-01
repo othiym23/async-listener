@@ -92,6 +92,46 @@ wrap(net.Socket.prototype, 'connect', function (original) {
   };
 });
 
+var childProcess = require('child_process');
+
+function wrapChildProcess(child) {
+  if (Array.isArray(child.stdio)) {
+    child.stdio.forEach(function (socket) {
+      if (socket && socket._handle) {
+        socket._handle.onread = wrapCallback(socket._handle.onread);
+        wrap(socket._handle, 'close', activatorFirst);
+      }
+    });
+  }
+
+  if (child._handle) {
+    child._handle.onexit = wrapCallback(child._handle.onexit);
+  }
+}
+
+// iojs v2.0.0+
+if (childProcess.ChildProcess) {
+  wrap(childProcess.ChildProcess.prototype, 'spawn', function (original) {
+    return function () {
+      var result = original.apply(this, arguments);
+      wrapChildProcess(this);
+      return result;
+    };
+  });
+} else {
+  massWrap(childProcess, [
+    'execFile', // exec is implemented in terms of execFile
+    'fork',
+    'spawn'
+  ], function (original) {
+    return function () {
+      var result = original.apply(this, arguments);
+      wrapChildProcess(result);
+      return result;
+    };
+  });
+}
+
 // need unwrapped nextTick for use within < 0.9 async error handling
 if (!process._fatalException) {
   process._originalNextTick = process.nextTick;
