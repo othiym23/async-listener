@@ -435,8 +435,11 @@ function wrapPromise() {
       var next = original.apply(promise, Array.prototype.map.call(arguments, bind));
 
       next.__asl_wrapper = function proxyWrapper(ctx, fn, val, last) {
-        promise.__asl_wrapper(ctx, function () {}, null, next)
-        return next.__asl_wrapper(ctx, fn, val, last)
+        if (promise.__asl_wrapper) {
+          promise.__asl_wrapper(ctx, function () {}, null, next);
+          return next.__asl_wrapper(ctx, fn, val, last);
+        }
+        return propagateAslWrapper(ctx, fn, val, last);
       }
 
       return next;

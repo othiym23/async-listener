@@ -3,6 +3,7 @@ if (!global.Promise) return;
 var test = require('tap').test;
 
 var unwrappedPromise = global.Promise;
+var resolvedBeforeWrap = unwrappedPromise.resolve(123)
 
 require('../index.js');
 
@@ -1478,6 +1479,31 @@ test('Promise.resolve().catch().then()', function (t) {
     }
 
     process.removeAsyncListener(listenerState.listener);
+});
+
+test('continue from unwrapped promise', function(t) {
+  var listener = addListner();
+
+  listener.currentName = 'resolve';
+  resolvedBeforeWrap.then(function(val) {
+    t.equal(val, 123, 'should match resolved value')
+    listener.currentName = '2nd resolve';
+    return 456
+  }).then(function (val) {
+    t.equal(val, 456, 'should match resolved value')
+    t.deepEqual(listener.root, expected);
+    t.end();
+  });
+
+  process.removeAsyncListener(listener.listener);
+
+  var expected = {
+    name: 'root',
+    children: [],
+    before: 0,
+    after: 0,
+    error: 0
+  }
 });
 
 function addListner() {
