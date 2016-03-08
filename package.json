@@ -1,6 +1,6 @@
 {
   "name": "async-listener",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "Polyfill exporting trevnorris's 0.11+ asyncListener API.",
   "author": "Forrest L Norvell <ogd@aoaioxxysz.net>",
   "contributors": [
