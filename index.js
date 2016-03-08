@@ -449,8 +449,7 @@ function wrapPromise() {
       function bind(fn) {
         if (typeof fn !== 'function') return fn;
         return function (val) {
-          if (!promise.__asl_wrapper) return fn.call(this, val);
-          var result = promise.__asl_wrapper(this, fn, val, next);
+          var result = (promise.__asl_wrapper || propagateAslWrapper)(this, fn, val, next);
           if (result.error) {
             throw result.errorVal
           } else {
