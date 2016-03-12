@@ -9,27 +9,6 @@ var shimmer      = require('shimmer')
   , util         = require('util')
   ;
 
-// Shim activator for functions that have callback last
-function activator(fn) {
-  return function () {
-    var index = arguments.length - 1;
-    if (typeof arguments[index] === "function") {
-      arguments[index] = wrapCallback(arguments[index]);
-    }
-    return fn.apply(this, arguments);
-  };
-}
-
-// Shim activator for functions that have callback first
-function activatorFirst(fn) {
-  return function () {
-    if (typeof arguments[0] === "function") {
-      arguments[0] = wrapCallback(arguments[0]);
-    }
-    return fn.apply(this, arguments);
-  };
-}
-
 var net = require('net');
 
 // a polyfill in our polyfill etc so forth -- taken from node master on 2013/10/30
@@ -458,5 +437,108 @@ function wrapPromise() {
         };
       }
     }
+  }
+}
+
+// Shim activator for functions that have callback last
+function activator(fn) {
+  var fallback = function () {
+    var index = arguments.length - 1;
+    if (typeof arguments[index] === "function") {
+      arguments[index] = wrapCallback(arguments[index]);
+    }
+    return fn.apply(this, arguments);
+  };
+  // Preserve function length for small arg count functions.
+  switch (fn.length) {
+    case 1:
+      return function (cb) {
+        if (arguments.length !== 1) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb);
+      };
+    case 2:
+      return function (a, cb) {
+        if (arguments.length !== 2) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, a, cb);
+      };
+    case 3:
+      return function (a, b, cb) {
+        if (arguments.length !== 3) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, a, b, cb);
+      };
+    case 4:
+      return function (a, b, c, cb) {
+        if (arguments.length !== 4) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, a, b, c, cb);
+      };
+    case 5:
+      return function (a, b, c, d, cb) {
+        if (arguments.length !== 5) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, a, b, c, d, cb);
+      };
+    case 6:
+      return function (a, b, c, d, e, cb) {
+        if (arguments.length !== 6) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, a, b, c, d, e, cb);
+      };
+    default:
+      return fallback;
+  }
+}
+
+// Shim activator for functions that have callback first
+function activatorFirst(fn) {
+  var fallback = function () {
+    if (typeof arguments[0] === "function") {
+      arguments[0] = wrapCallback(arguments[0]);
+    }
+    return fn.apply(this, arguments);
+  };
+  // Preserve function length for small arg count functions.
+  switch (fn.length) {
+    case 1:
+      return function (cb) {
+        if (arguments.length !== 1) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb);
+      };
+    case 2:
+      return function (cb, a) {
+        if (arguments.length !== 2) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb, a);
+      };
+    case 3:
+      return function (cb, a, b) {
+        if (arguments.length !== 3) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb, a, b);
+      };
+    case 4:
+      return function (cb, a, b, c) {
+        if (arguments.length !== 4) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb, a, b, c);
+      };
+    case 5:
+      return function (cb, a, b, c, d) {
+        if (arguments.length !== 5) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb, a, b, c, d);
+      };
+    case 6:
+      return function (cb, a, b, c, d, e) {
+        if (arguments.length !== 6) return fallback.apply(this, arguments);
+        if (typeof cb === "function") cb = wrapCallback(cb);
+        return fn.call(this, cb, a, b, c, d, e);
+      };
+    default:
+      return fallback;
   }
 }
