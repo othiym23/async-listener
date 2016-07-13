@@ -59,12 +59,34 @@ wrap(net.Server.prototype, '_listen2', function (original) {
   };
 });
 
+wrap(net.Socket.prototype, 'unref', function (original) {
+  return function() {
+    if (this._saveOnRead) {
+      this._handle.onread = this._saveOnRead;
+      delete this._saveOnRead;
+    }
+    original.apply(this);
+  }
+});
+
+
+wrap(net.Socket.prototype, 'ref', function (original) {
+  return function() {
+    if (this._handle) {
+      this._saveOnRead = this._handle.onread;
+      this._handle.onread = wrapCallback(this._handle.onread);
+    }
+    original.apply(this);
+  }
+});
+
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
     var args = net._normalizeConnectArgs(arguments);
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
     if (this._handle) {
+      this._saveOnRead = this._handle.onread;
       this._handle.onread = wrapCallback(this._handle.onread);
     }
     return result;
