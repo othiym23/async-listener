@@ -59,12 +59,50 @@ wrap(net.Server.prototype, '_listen2', function (original) {
   };
 });
 
+wrap(net.Socket.prototype, 'setKeepAlive', function (original) {
+  return function(enable, initialDelay) {
+    var self = this;
+    if (enable) {
+      this._freeing = true;
+      setImmediate(function () {
+        self._freeing = false;
+      });
+    }
+    this._keepAlive = enable;
+    original.call(this, enable, initialDelay);
+  }
+});
+
+wrap(net.Socket.prototype, 'unref', function (original) {
+  return function() {
+    if (this._keepAlive && this._freeing && this._originalOnRead) {
+      this._freeing = false;
+      this._handle.onread = this._originalOnRead;
+      this._originalOnRead = undefined;
+    }
+    original.apply(this);
+  }
+});
+
+
+wrap(net.Socket.prototype, 'ref', function (original) {
+  return function() {
+    if (this._keepAlive && this._handle) {
+      this._originalOnRead = this._handle.onread;
+      this._keepAlive = undefined;
+      this._handle.onread = wrapCallback(this._handle.onread);
+    }
+    original.apply(this);
+  }
+});
+
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
     var args = net._normalizeConnectArgs(arguments);
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
     if (this._handle) {
+      this._originalOnRead = this._handle.onread;
       this._handle.onread = wrapCallback(this._handle.onread);
     }
     return result;
