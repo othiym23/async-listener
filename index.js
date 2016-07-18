@@ -65,9 +65,25 @@ wrap(net.Socket.prototype, 'connect', function (original) {
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
     if (this._handle) {
+      this._originalOnread = this._handle.onread;
       this._handle.onread = wrapCallback(this._handle.onread);
     }
     return result;
+  };
+});
+
+var http = require('http');
+
+wrap(http.Agent.prototype, 'addRequest', function (original) {
+  return function (req, options) {
+    var onSocket = req.onSocket;
+    req.onSocket = wrapCallback(function (socket) {
+      if (socket._originalOnread) {
+        socket._handle.onread = wrapCallback(socket._originalOnread);
+      }
+      return onSocket.call(this, socket);
+    });
+    return original.call(this, req, options);
   };
 });
 
