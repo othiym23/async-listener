@@ -372,7 +372,9 @@ function wrapPromise() {
   util.inherits(wrappedPromise, Promise);
 
   wrap(Promise.prototype, 'then', wrapThen);
-  wrap(Promise.prototype, 'chain', wrapThen);
+  if (Promise.prototype.chain) {
+    wrap(Promise.prototype, 'chain', wrapThen);
+  }
 
   var PromiseMethods = ['accept', 'all', 'defer', 'race', 'reject', 'resolve'];
 
