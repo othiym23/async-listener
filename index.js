@@ -461,11 +461,16 @@ function wrapPromise() {
 // Shim activator for functions that have callback last
 function activator(fn) {
   var fallback = function () {
-    var index = arguments.length - 1;
-    if (typeof arguments[index] === "function") {
-      arguments[index] = wrapCallback(arguments[index]);
+    var args;
+    var cbIdx = arguments.length - 1;
+    if (typeof arguments[cbIdx] === "function") {
+      args = Array(arguments.length)
+      for (var i = 0; i < arguments.length - 1; i++) {
+        args[i] = arguments[i];
+      }
+      args[cbIdx] = wrapCallback(arguments[cbIdx]);
     }
-    return fn.apply(this, arguments);
+    return fn.apply(this, args || arguments);
   };
   // Preserve function length for small arg count functions.
   switch (fn.length) {
@@ -513,10 +518,15 @@ function activator(fn) {
 // Shim activator for functions that have callback first
 function activatorFirst(fn) {
   var fallback = function () {
+    var args;
     if (typeof arguments[0] === "function") {
-      arguments[0] = wrapCallback(arguments[0]);
+      args = Array(arguments.length)
+      args[0] = wrapCallback(arguments[0]);
+      for (var i = 1; i < arguments.length; i++) {
+        args[i] = arguments[i];
+      }
     }
-    return fn.apply(this, arguments);
+    return fn.apply(this, args || arguments);
   };
   // Preserve function length for small arg count functions.
   switch (fn.length) {
