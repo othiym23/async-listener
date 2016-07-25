@@ -59,15 +59,40 @@ wrap(net.Server.prototype, '_listen2', function (original) {
   };
 });
 
+function patchOnRead(ctx) {
+  if (ctx && ctx._handle) {
+    var handle = ctx._handle;
+    if (!handle._originalOnread) {
+      handle._originalOnread = handle.onread;
+    }
+    handle.onread = wrapCallback(handle._originalOnread);
+  }
+}
+
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
     var args = net._normalizeConnectArgs(arguments);
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
-    if (this._handle) {
-      this._handle.onread = wrapCallback(this._handle.onread);
-    }
+    patchOnRead(this);
     return result;
+  };
+});
+
+var http = require('http');
+
+// NOTE: A rewrite occurred in 0.11 that changed the addRequest signature
+// from (req, host, port, localAddress) to (req, options)
+// Here, I use the longer signature to maintain 0.10 support, even though
+// the rest of the arguments aren't actually used
+wrap(http.Agent.prototype, 'addRequest', function (original) {
+  return function (req) {
+    var onSocket = req.onSocket;
+    req.onSocket = wrapCallback(function (socket) {
+      patchOnRead(socket);
+      return onSocket.apply(this, arguments);
+    });
+    return original.apply(this, arguments);
   };
 });
 
