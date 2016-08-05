@@ -30,9 +30,9 @@
     "node": "<=0.11.8 || >0.11.10"
   },
   "dependencies": {
-    "shimmer": "1.0.0"
+    "shimmer": "1.1.0"
   },
   "devDependencies": {
-    "tap": "^0.7.1"
+    "tap": "^6.3.0"
   }
 }
