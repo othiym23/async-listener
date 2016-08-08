@@ -1,0 +1,24 @@
+language: node_js
+
+cache:
+  directories:
+    - node_modules
+
+node_js:
+  - "6"
+  - "5"
+  - "4"
+  - "3"
+  - "2"
+  - "1"
+  - "0.12"
+  - "0.10"
+
+matrix:
+  allow_failures:
+    - node_js: 1
+    - node_js: 2
+    - node_js: 3
+    - node_js: 5
+
+sudo: false
