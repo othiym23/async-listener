@@ -129,7 +129,7 @@ test('http.Agent socket reuse works', function(t){
         : innerResumeChildrenWrapped
     }));
     if (nodeVersion[0] > 0 || nodeVersion[1] > 10) {
-      if (nodeVersion[0] < 6) {
+      if (nodeVersion[0] < 6 && nodeVersion[0] !== 4) {
         innerPingChildren.push(make('res.resume ping #0'));
       }
       innerPingChildren.push(
@@ -195,7 +195,7 @@ test('http.Agent socket reuse works', function(t){
         : innerPingChildrenWrapped
     }));
     if (nodeVersion[0] > 0 || nodeVersion[1] > 10) {
-      if (nodeVersion[0] < 6) {
+      if (nodeVersion[0] < 6 && nodeVersion[0] !== 4) {
         innerImmediateChildren.push(make('res.resume ping #1'));
       }
       innerImmediateChildren.push(
