@@ -3,16 +3,49 @@
 if (process.addAsyncListener) throw new Error("Don't require polyfill unless needed");
 
 var shimmer      = require('shimmer')
+  , semver       = require('semver')
   , wrap         = shimmer.wrap
   , massWrap     = shimmer.massWrap
   , wrapCallback = require('./glue.js')
   , util         = require('util')
   ;
 
+var v7plus = semver.gte(process.version, '7.0.0');
+
 var net = require('net');
 
-// a polyfill in our polyfill etc so forth -- taken from node master on 2013/10/30
-if (!net._normalizeConnectArgs) {
+// From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeConnectArgs
+if (v7plus && !net._normalizeArgs) {
+  // a polyfill in our polyfill etc so forth -- taken from node master on 2017/03/09
+  net._normalizeArgs = function (args) {
+    if (args.length === 0) {
+      return [{}, null];
+    }
+
+    var arg0 = args[0];
+    var options = {};
+    if (typeof arg0 === 'object' && arg0 !== null) {
+      // (options[...][, cb])
+      options = arg0;
+    } else if (isPipeName(arg0)) {
+      // (path[...][, cb])
+      options.path = arg0;
+    } else {
+      // ([port][, host][...][, cb])
+      options.port = arg0;
+      if (args.length > 1 && typeof args[1] === 'string') {
+        options.host = args[1];
+      }
+    }
+
+    var cb = args[args.length - 1];
+    if (typeof cb !== 'function')
+      return [options, null];
+    else
+      return [options, cb];
+  }
+} else if (!v7plus && !net._normalizeConnectArgs) {
+  // a polyfill in our polyfill etc so forth -- taken from node master on 2013/10/30
   net._normalizeConnectArgs = function (args) {
     var options = {};
 
@@ -71,7 +104,10 @@ function patchOnRead(ctx) {
 
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
-    var args = net._normalizeConnectArgs(arguments);
+    // From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeConnectArgs
+    var args = v7plus
+      ? net._normalizeArgs(arguments)
+      : net._normalizeConnectArgs(arguments);
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
     patchOnRead(this);
@@ -578,4 +614,14 @@ function activatorFirst(fn) {
     default:
       return fallback;
   }
+}
+
+// taken from node master on 2017/03/09
+function toNumber(x) {
+  return (x = Number(x)) >= 0 ? x : false;
+}
+
+// taken from node master on 2017/03/09
+function isPipeName(s) {
+  return typeof s === 'string' && toNumber(s) === false;
 }
