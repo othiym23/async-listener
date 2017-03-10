@@ -27,7 +27,7 @@
     "url": "https://github.com/othiym23/async-listener/issues"
   },
   "engines": {
-    "node": "<=0.11.8 || >0.11.10"
+    "node": ">= 4"
   },
   "dependencies": {
     "semver": "^5.3.0",
