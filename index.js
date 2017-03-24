@@ -72,7 +72,17 @@ if (v7plus && !net._normalizeArgs) {
   };
 }
 
-wrap(net.Server.prototype, '_listen2', function (original) {
+// In https://github.com/nodejs/node/pull/11796 `_listen2` was renamed
+// `_setUpListenHandle`. It's still aliased as `_listen2`, and currently the
+// Node internals still call the alias - but who knows for how long. So better
+// make sure we use the new name instead if available.
+if ('_setUpListenHandle' in net.Server.prototype) {
+  wrap(net.Server.prototype, '_setUpListenHandle', wrapSetUpListenHandle);
+} else {
+  wrap(net.Server.prototype, '_listen2', wrapSetUpListenHandle);
+}
+
+function wrapSetUpListenHandle(original) {
   return function () {
     this.on('connection', function (socket) {
       if (socket._handle) {
@@ -90,7 +100,7 @@ wrap(net.Server.prototype, '_listen2', function (original) {
       }
     }
   };
-});
+}
 
 function patchOnRead(ctx) {
   if (ctx && ctx._handle) {
