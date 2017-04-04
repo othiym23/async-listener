@@ -84,8 +84,23 @@ test('then', function(t) {
         error: 0
       },
       {
-        name: 'setImmediate in root',
+        name: 'accept',
         children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'setImmediate in root',
+        children: [
+          {
+            name: 'first then continuation',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
         before: 1,
         after: 1,
         error: 0
@@ -169,8 +184,23 @@ test('chain', function chainTest(t) {
         error: 0
       },
       {
-        name: 'setImmediate in root',
+        name: 'accept',
         children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'setImmediate in root',
+        children: [
+          {
+            name: 'first chain continuation',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
         before: 1,
         after: 1,
         error: 0
@@ -271,7 +301,22 @@ test('catch', function(t) {
       },
       {
         name: 'setImmediate in root',
-        children: [],
+        children: [
+          {
+            name: 'catch continuation',
+            children: [],
+            before: 0,
+            after: 0,
+            error: 0
+          },
+          {
+            name: 'catch continuation',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          }
+        ],
         before: 1,
         after: 1,
         error: 0
@@ -365,6 +410,48 @@ test('future chains', function futureChainTest(t) {
         error: 0
       },
       {
+        name: 'resolve',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'resolve',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'resolve',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'resolve',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'resolve',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'resolve',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
         name: 'setTimeout',
         children: [],
         before: 1,
@@ -399,6 +486,13 @@ test('Promise.resolve', function resolveTest(t) {
             after: 0,
             error: 0
           }],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
           before: 1,
           after: 1,
           error: 0
@@ -443,6 +537,13 @@ test('Promise.accept', function acceptTest(t) {
               error: 0
             }
           ],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'accept',
+          children: [],
           before: 1,
           after: 1,
           error: 0
@@ -589,6 +690,41 @@ test('Promise.all', function allTest(t) {
           before: 1,
           after: 1,
           error: 0
+        },
+        {
+          name: 'all',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'all',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'all',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'all',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'all',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
         }],
         before: 0,
         after: 0,
@@ -686,6 +822,41 @@ test('Promise.all reject', function allTest(t) {
       before: 1,
       after: 1,
       error: 0
+    },
+    {
+      name: 'all',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    },
+    {
+      name: 'all',
+      children: [],
+      before: 0,
+      after: 0,
+      error: 0
+    },
+    {
+      name: 'all',
+      children: [],
+      before: 0,
+      after: 0,
+      error: 0
+    },
+    {
+      name: 'all',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    },
+    {
+      name: 'all',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
     }],
     before: 0,
     after: 0,
@@ -757,6 +928,41 @@ test('Promise.race', function raceTest(t) {
             after: 0,
             error: 0
           }],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'race',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'race',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'race',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'race',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'race',
+          children: [],
           before: 1,
           after: 1,
           error: 0
@@ -858,6 +1064,41 @@ test('Promise.race - reject', function raceTest(t) {
       before: 1,
       after: 1,
       error: 0
+    },
+    {
+      name: 'race',
+      children: [],
+      before: 0,
+      after: 0,
+      error: 0
+    },
+    {
+      name: 'race',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    },
+    {
+      name: 'race',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    },
+    {
+      name: 'race',
+      children: [],
+      before: 0,
+      after: 0,
+      error: 0
+    },
+    {
+      name: 'race',
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
     }],
     before: 0,
     after: 0,
@@ -900,6 +1141,13 @@ test('Promise.defer', function diferTest(t) {
               error: 0
             }
           ],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'reject',
+          children: [],
           before: 1,
           after: 1,
           error: 0
@@ -1008,6 +1256,20 @@ test('then chain with promise', function(t) {
         before: 1,
         after: 1,
         error: 0
+      },
+      {
+        name: 'accept',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'accept',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
       }
     ],
     before: 0,
@@ -1098,6 +1360,20 @@ test('multi chain with promise', function(t) {
             error: 0
           }
         ],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'accept',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'accept',
+        children: [],
         before: 1,
         after: 1,
         error: 0
@@ -1210,6 +1486,34 @@ test('then chain with rejected promise', function(t) {
         before: 1,
         after: 1,
         error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
       }
     ],
     before: 0,
@@ -1319,6 +1623,34 @@ test('multi chain with rejected promise', function(t) {
         before: 1,
         after: 1,
         error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
       }
     ],
     before: 0,
@@ -1423,6 +1755,20 @@ test('multi catch with promise', function(t) {
         before: 1,
         after: 1,
         error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
+      },
+      {
+        name: 'reject',
+        children: [],
+        before: 1,
+        after: 1,
+        error: 0
       }
     ],
     before: 0,
@@ -1445,7 +1791,7 @@ test('throw in executor', function(t) {
       expected.children.splice(1, 0, {
         name: 'throw',
         children: [],
-        before: 0,
+        before: 1,
         after: 0,
         error: 0
       })
@@ -1545,6 +1891,48 @@ test('Promise.resolve().catch().then()', function (t) {
           before: 1,
           after: 1,
           error: 0
+        },
+        {
+          name: 'return of 1st catch that didnt get run',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'return of 1st catch that didnt get run',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'return of 1st catch that didnt get run',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'return of 1st catch that didnt get run',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'return of 1st catch that didnt get run',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'return of 1st catch that didnt get run',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
         }
       ],
       before: 0,
@@ -1573,7 +1961,26 @@ test('continue from unwrapped promise', function(t) {
 
   var expected = {
     name: 'root',
-    children: [],
+    children: [{
+      name : 'resolve',
+      children : [{
+        name : '2nd resolve',
+        children : [],
+        before : 1,
+        after : 0,
+        error : 0
+      }],
+      before : 1,
+      after : 1,
+      error : 0
+    },
+    {
+      name : 'resolve',
+      children : [],
+      before : 1,
+      after : 0,
+      error : 0
+    }],
     before: 0,
     after: 0,
     error: 0
@@ -1605,6 +2012,33 @@ test('return unwrapped promise', function(t) {
       children : [],
       before : 1,
       after : 1,
+      error : 0
+    },
+    {
+      name : 'resolve',
+      children : [],
+      before : 1,
+      after : 1,
+      error : 0
+    },
+    {
+      name : 'resolve',
+      children : [{
+        name : 'resolve',
+        children : [],
+        before : 1,
+        after : 0,
+        error : 0
+      }],
+      before : 1,
+      after : 1,
+      error : 0
+    },
+    {
+      name : 'resolve',
+      children : [],
+      before : 1,
+      after : 0,
       error : 0
     }],
     before: 0,
@@ -1663,6 +2097,27 @@ test('resume context after unwrapped promise', function(t) {
       children : children,
       before : children.length,
       after : children.length,
+      error : 0
+    },
+    {
+      name : 'unwrapped resolve',
+      children : [],
+      before : 1,
+      after : 1,
+      error : 0
+    },
+    {
+      name : 'unwrapped resolve',
+      children : [],
+      before : 1,
+      after : 1,
+      error : 0
+    },
+    {
+      name : 'unwrapped resolve',
+      children : [],
+      before : 1,
+      after : 0,
       error : 0
     }],
     before: 0,
