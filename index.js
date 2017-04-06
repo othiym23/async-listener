@@ -490,14 +490,14 @@ function wrapPromise() {
       // continuations of the accept or reject call using the __asl_wrapper created above.
       function bind(fn) {
         if (typeof fn !== 'function') return fn;
-        return function (val) {
+        return wrapCallback(function (val) {
           var result = (promise.__asl_wrapper || propagateAslWrapper)(this, fn, val, next);
           if (result.error) {
             throw result.errorVal
           } else {
             return result.returnVal
           }
-        };
+        });
       }
     }
   }
