@@ -112,106 +112,6 @@ test('then', function(t) {
   }
 });
 
-test('chain', function chainTest(t) {
-  var listener = addListner();
-
-  var promise = new Promise(function(accept, reject) {
-    listener.currentName = 'accept';
-    accept(10);
-  });
-
-  promise.chain(function(val) {
-    listener.currentName = 'nextTick in first chain';
-    process.nextTick(function() {
-      t.strictEqual(val, 10);
-    });
-    listener.currentName = 'first chain continuation';
-  });
-
-  listener.currentName = 'setImmediate in root';
-  setImmediate(function() {
-    promise.chain(function(val) {
-      t.strictEqual(val, 10);
-      t.strictEqual(this, global);
-      listener.currentName = 'setTimeout in 2nd chain';
-      setTimeout(function() {
-        t.deepEqual(listener.root, expected);
-        t.end();
-      });
-      listener.currentName = '2nd chain continuation';
-    });
-  });
-
-  process.removeAsyncListener(listener.listener);
-
-  var expected = {
-    name: 'root',
-    children: [
-      {
-        name: 'accept',
-        children: [
-          {
-            name: 'nextTick in first chain',
-            children: [],
-            before: 1,
-            after: 1,
-            error: 0
-          },
-          {
-            name: 'first chain continuation',
-            children: [],
-            before: 0,
-            after: 0,
-            error: 0
-          },
-          {
-            name: 'setTimeout in 2nd chain',
-            children: [],
-            before: 1,
-            after: 0,
-            error: 0
-          },
-          {
-            name: '2nd chain continuation',
-            children: [],
-            before: 0,
-            after: 0,
-            error: 0
-          }
-        ],
-        before: 2,
-        after: 2,
-        error: 0
-      },
-      {
-        name: 'accept',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'setImmediate in root',
-        children: [
-          {
-            name: 'first chain continuation',
-            children: [],
-            before: 1,
-            after: 1,
-            error: 0
-          }
-        ],
-        before: 1,
-        after: 1,
-        error: 0
-      }
-    ],
-    before: 0,
-    after: 0,
-    error: 0
-  }
-});
-
 test('catch', function(t) {
   var listener = addListner();
 
@@ -328,143 +228,6 @@ test('catch', function(t) {
   };
 });
 
-test('future chains', function futureChainTest(t) {
-  var listener = addListner();
-
-  listener.currentName = 'resolve';
-  var promise = Promise.resolve();
-
-  promise
-    .then(function() { listener.currentName = '1st then'; })
-    .then(function() { listener.currentName = '2nd then'; })
-    .then(function() { listener.currentName = '3rd then'; });
-
-  promise
-    .chain(function() { listener.currentName = '1st chain'; })
-    .chain(function() { listener.currentName = '2nd chain'; })
-    .chain(function() { listener.currentName = '3rd chain'; });
-
-  listener.currentName = 'setTimeout';
-  setTimeout(function() {
-    t.deepEqual(listener.root, expected);
-    t.end();
-  });
-
-  process.removeAsyncListener(listener.listener);
-
-  var expected = {
-    name: 'root',
-    children: [
-      {
-        name: 'resolve',
-        children: [
-          {
-            name: '1st then',
-            children: [
-              {
-                name: '2nd then',
-                children: [
-                  {
-                    name: '3rd then',
-                    children: [],
-                    before: 0,
-                    after: 0,
-                    error: 0
-                  }
-                ],
-                before: 1,
-                after: 1,
-                error: 0
-              }
-            ],
-            before: 1,
-            after: 1,
-            error: 0
-          },
-          {
-            name: '1st chain',
-            children: [
-              {
-                name: '2nd chain',
-                children: [
-                  {
-                    name: '3rd chain',
-                    children: [],
-                    before: 0,
-                    after: 0,
-                    error: 0
-                  }
-                ],
-                before: 1,
-                after: 1,
-                error: 0
-              }
-            ],
-            before: 1,
-            after: 1,
-            error: 0
-          }
-        ],
-        before: 2,
-        after: 2,
-        error: 0
-      },
-      {
-        name: 'resolve',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'resolve',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'resolve',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'resolve',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'resolve',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'resolve',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'setTimeout',
-        children: [],
-        before: 1,
-        after: 0,
-        error: 0
-      }
-    ],
-    before: 0,
-    after: 0,
-    error: 0
-  }
-});
-
 test('Promise.resolve', function resolveTest(t) {
   var listener = addListner();
 
@@ -505,60 +268,6 @@ test('Promise.resolve', function resolveTest(t) {
     });
     process.removeAsyncListener(listener.listener);
   });
-});
-
-test('Promise.accept', function acceptTest(t) {
-  var listener = addListner();
-
-  listener.currentName = 'accept';
-  var p = Promise.accept(123);
-
-  p.then(function then(value) {
-    listener.currentName = 'nextTick';
-    process.nextTick(function next() {
-      t.equal(value, 123);
-      t.deepEqual(listener.root, {
-        name: 'root',
-        children: [{
-          name: 'accept',
-          children: [
-            {
-              name: 'nextTick',
-              children: [],
-              before: 1,
-              after: 0,
-              error: 0
-            },
-            {
-              name: 'then continuation',
-              children: [],
-              before: 0,
-              after: 0,
-              error: 0
-            }
-          ],
-          before: 1,
-          after: 1,
-          error: 0
-        },
-        {
-          name: 'accept',
-          children: [],
-          before: 1,
-          after: 1,
-          error: 0
-        }],
-        before: 0,
-        after: 0,
-        error: 0
-      });
-      t.end();
-    });
-
-    listener.currentName = 'then continuation';
-  });
-
-  process.removeAsyncListener(listener.listener);
 });
 
 test('Promise.reject', function rejectTest(t) {
@@ -1106,65 +815,8 @@ test('Promise.race - reject', function raceTest(t) {
   }
 });
 
-test('Promise.defer', function diferTest(t) {
-  var listener = addListner();
-
-  listener.currentName = 'defer';
-  var p = Promise.defer();
-  listener.currentName = 'resolve';
-  p.resolve(123);
-  listener.currentName = 'reject';
-  p.reject(456);
-
-  p.promise.then(function then(value) {
-    listener.currentName = 'nextTick';
-    process.nextTick(function next() {
-      process.removeAsyncListener(listener.listener);
-      t.equal(value, 123);
-      t.deepEqual(listener.root, {
-        name: 'root',
-        children: [{
-          name: 'resolve',
-          children: [
-            {
-              name: 'nextTick',
-              children: [],
-              before: 1,
-              after: 0,
-              error: 0
-            },
-            {
-              name: 'then continuation',
-              children: [],
-              before: 0,
-              after: 0,
-              error: 0
-            }
-          ],
-          before: 1,
-          after: 1,
-          error: 0
-        },
-        {
-          name: 'reject',
-          children: [],
-          before: 1,
-          after: 1,
-          error: 0
-        }],
-        before: 0,
-        after: 0,
-        error: 0
-      });
-      t.end();
-    });
-
-    listener.currentName = 'then continuation';
-  });
-});
-
 test('instanceof', function diferTest(t) {
-  var p = Promise.accept();
+  var p = Promise.resolve(10);
 
   t.ok(p instanceof Promise, 'instanceof should work on wrapped Promise');
   t.ok(p instanceof unwrappedPromise, 'instanceof should work on unwrapped Promise');
@@ -1175,7 +827,7 @@ test('then chain with promise', function(t) {
   var listener = addListner();
 
   listener.currentName = 'accept';
-  var promise = Promise.accept(10);
+  var promise = Promise.resolve(10);
 
   promise
     .then(function(val) {
@@ -1217,113 +869,6 @@ test('then chain with promise', function(t) {
   children.push(
     {
       name: 'setTimeout in 2nd then',
-      children: [],
-      before: 1,
-      after: 0,
-      error: 0
-    },
-    {
-      name: '2nd then continuation',
-      children: [],
-      before: 0,
-      after: 0,
-      error: 0
-    }
-  )
-
-  var expected = {
-    name: 'root',
-    children: [
-      {
-        name: 'accept',
-        children: [
-          {
-            name: 'nextTick in nested promise',
-            children: [
-              {
-                name: 'accept from nextTick',
-                children: children,
-                before: children.length - 1,
-                after: children.length - 1,
-                error: 0
-              }
-            ],
-            before: 1,
-            after: 1,
-            error: 0
-          }
-        ],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'accept',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'accept',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      }
-    ],
-    before: 0,
-    after: 0,
-    error: 0
-  }
-});
-
-test('multi chain with promise', function(t) {
-  var listener = addListner();
-
-  listener.currentName = 'accept';
-  var promise = Promise.accept(10);
-
-  promise
-    .chain(function(val) {
-      return new Promise(function wait(accept) {
-        listener.currentName = 'nextTick in nested promise';
-        process.nextTick(function() {
-          listener.currentName = 'accept from nextTick';
-          accept(val);
-        });
-      });
-    })
-    .chain(function validate(val) {
-      t.strictEqual(val, 10);
-      t.strictEqual(this, global);
-
-      listener.currentName = 'setTimeout in 2nd chain';
-      setTimeout(function() {
-        t.deepEqual(listener.root, expected);
-        t.end();
-      });
-
-      listener.currentName = '2nd then continuation';
-    });
-
-  process.removeAsyncListener(listener.listener);
-
-  // Promise resolution changed slightly in node v6,
-  // now resolve/reject wraps again on completion.
-  var children = []
-  if (nodeVersion[0] >= 6) {
-    children.push({
-      name: 'accept from nextTick',
-      children: [],
-      before: 0,
-      after: 0,
-      error: 0
-    })
-  }
-  children.push(
-    {
-      name: 'setTimeout in 2nd chain',
       children: [],
       before: 1,
       after: 0,
@@ -1454,143 +999,6 @@ test('then chain with rejected promise', function(t) {
     },
     {
       name: '2nd then continuation',
-      children: [],
-      before: 0,
-      after: 0,
-      error: 0
-    }
-  )
-
-  var expected = {
-    name: 'root',
-    children: [
-      {
-        name: 'reject',
-        children: [
-          {
-            name: 'nextTick in nested promise',
-            children: [
-              {
-                name: 'reject from nextTick',
-                children: children,
-                before: children.length - 1,
-                after: children.length - 1,
-                error: 0
-              }
-            ],
-            before: 1,
-            after: 1,
-            error: 0
-          }
-        ],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'reject',
-        children: [],
-        before: 0,
-        after: 0,
-        error: 0
-      },
-      {
-        name: 'reject',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      },
-      {
-        name: 'reject',
-        children: [],
-        before: 0,
-        after: 0,
-        error: 0
-      },
-      {
-        name: 'reject',
-        children: [],
-        before: 1,
-        after: 1,
-        error: 0
-      }
-    ],
-    before: 0,
-    after: 0,
-    error: 0
-  }
-});
-
-test('multi chain with rejected promise', function(t) {
-  var listener = addListner();
-
-  listener.currentName = 'reject';
-  var promise = Promise.reject(10);
-
-  promise
-    .chain(fail, function(val) {
-      return new Promise(function wait(accept, reject) {
-        listener.currentName = 'nextTick in nested promise';
-        process.nextTick(function() {
-          listener.currentName = 'reject from nextTick';
-          reject(val);
-        });
-      });
-    })
-    .chain(fail, function validate(val) {
-      t.strictEqual(val, 10);
-      t.strictEqual(this, global);
-
-      listener.currentName = 'setTimeout in 2nd chain';
-      setTimeout(function() {
-        // some version of iojs use nextTick for some parts of its async
-        if (listener.root.children.length === 2) {
-          expected.children.splice(1, 0, {
-            name: 'reject',
-            children: [],
-            before: 1,
-            after: 1,
-            error: 0
-          })
-        }
-
-        t.deepEqual(listener.root, expected);
-        t.end();
-      });
-
-      listener.currentName = '2nd chain continuation';
-    });
-
-  function fail() {
-    t.fail('should not be called');
-    t.end();
-  }
-
-  process.removeAsyncListener(listener.listener);
-
-  // Promise resolution changed slightly in node v6,
-  // now resolve/reject wraps again on completion.
-  var children = []
-  if (nodeVersion[0] >= 6) {
-    children.push({
-      name: 'reject from nextTick',
-      children: [],
-      before: 0,
-      after: 0,
-      error: 0
-    })
-  }
-  children.push(
-    {
-      name: 'setTimeout in 2nd chain',
-      children: [],
-      before: 1,
-      after: 0,
-      error: 0
-    },
-    {
-      name: '2nd chain continuation',
       children: [],
       before: 0,
       after: 0,
@@ -2173,4 +1581,620 @@ function addListner() {
     state.current = null;
     return false;
   }
+}
+
+// for the following,
+//
+// https://github.com/v8/v8/commits/master/src/js/promise-extra.js
+//
+// is helpful context -- none of these are part of ES2015 promises, and were
+// set up to be removed.
+
+// Node.js <v7 exposed Promise.defer as a way of getting at the raw "promise
+// capability", which is to say a deferred execution context that exposes the
+// `.resolve` and `.reject` functions. The preferred way to get direct access
+// to these functions is the "revealing constructor" pattern – to capture the
+// two callbacks when creating a new Promise. The arguments for and against
+// exposing these functions are somewhat arcane and subjective, but regardless,
+// Promise.defer isn't part of ES2015 promises, and as such was removed from V8
+// in the Node.js v7 timeframe.
+if (typeof Promise.defer === 'function') {
+  test('Promise.defer', function diferTest(t) {
+    var listener = addListner();
+
+    listener.currentName = 'defer';
+    var p = Promise.defer();
+    listener.currentName = 'resolve';
+    p.resolve(123);
+    listener.currentName = 'reject';
+    p.reject(456);
+
+    p.promise.then(function then(value) {
+      listener.currentName = 'nextTick';
+      process.nextTick(function next() {
+        process.removeAsyncListener(listener.listener);
+        t.equal(value, 123);
+        t.deepEqual(listener.root, {
+          name: 'root',
+          children: [{
+            name: 'resolve',
+            children: [
+              {
+                name: 'nextTick',
+                children: [],
+                before: 1,
+                after: 0,
+                error: 0
+              },
+              {
+                name: 'then continuation',
+                children: [],
+                before: 0,
+                after: 0,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          },
+          {
+            name: 'reject',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          }],
+          before: 0,
+          after: 0,
+          error: 0
+        });
+        t.end();
+      });
+
+      listener.currentName = 'then continuation';
+    });
+  });
+}
+
+// In Node.js <v7, Promise.accept is an alias for Promise.resolve.
+if (typeof Promise.accept === 'function') {
+  test('Promise.accept', function acceptTest(t) {
+    var listener = addListner();
+
+    listener.currentName = 'accept';
+    var p = Promise.accept(123);
+
+    p.then(function then(value) {
+      listener.currentName = 'nextTick';
+      process.nextTick(function next() {
+        t.equal(value, 123);
+        t.deepEqual(listener.root, {
+          name: 'root',
+          children: [{
+            name: 'accept',
+            children: [
+              {
+                name: 'nextTick',
+                children: [],
+                before: 1,
+                after: 0,
+                error: 0
+              },
+              {
+                name: 'then continuation',
+                children: [],
+                before: 0,
+                after: 0,
+                error: 0
+              }
+            ],
+            before: 1,
+            after: 1,
+            error: 0
+          },
+          {
+            name: 'accept',
+            children: [],
+            before: 1,
+            after: 1,
+            error: 0
+          }],
+          before: 0,
+          after: 0,
+          error: 0
+        });
+        t.end();
+      });
+
+      listener.currentName = 'then continuation';
+    });
+
+    process.removeAsyncListener(listener.listener);
+  });
+}
+
+// In Node.js v6 (and possibly v4), Promise.prototype.chain is merely an alias
+// for Promise.prototype.then. In Node.js v7+, it has been completely removed.
+if (typeof Promise.prototype.chain === 'function') {
+  test('chain', function chainTest(t) {
+    var listener = addListner();
+
+    var promise = new Promise(function(accept, reject) {
+      listener.currentName = 'accept';
+      accept(10);
+    });
+
+    promise.chain(function(val) {
+      listener.currentName = 'nextTick in first chain';
+      process.nextTick(function() {
+        t.strictEqual(val, 10);
+      });
+      listener.currentName = 'first chain continuation';
+    });
+
+    listener.currentName = 'setImmediate in root';
+    setImmediate(function() {
+      promise.chain(function(val) {
+        t.strictEqual(val, 10);
+        t.strictEqual(this, global);
+        listener.currentName = 'setTimeout in 2nd chain';
+        setTimeout(function() {
+          t.deepEqual(listener.root, expected);
+          t.end();
+        });
+        listener.currentName = '2nd chain continuation';
+      });
+    });
+
+    process.removeAsyncListener(listener.listener);
+
+    var expected = {
+      name: 'root',
+      children: [
+        {
+          name: 'accept',
+          children: [
+            {
+              name: 'nextTick in first chain',
+              children: [],
+              before: 1,
+              after: 1,
+              error: 0
+            },
+            {
+              name: 'first chain continuation',
+              children: [],
+              before: 0,
+              after: 0,
+              error: 0
+            },
+            {
+              name: 'setTimeout in 2nd chain',
+              children: [],
+              before: 1,
+              after: 0,
+              error: 0
+            },
+            {
+              name: '2nd chain continuation',
+              children: [],
+              before: 0,
+              after: 0,
+              error: 0
+            }
+          ],
+          before: 2,
+          after: 2,
+          error: 0
+        },
+        {
+          name: 'accept',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'setImmediate in root',
+          children: [
+            {
+              name: 'first chain continuation',
+              children: [],
+              before: 1,
+              after: 1,
+              error: 0
+            }
+          ],
+          before: 1,
+          after: 1,
+          error: 0
+        }
+      ],
+      before: 0,
+      after: 0,
+      error: 0
+    }
+  });
+
+  test('future chains', function futureChainTest(t) {
+    var listener = addListner();
+
+    listener.currentName = 'resolve';
+    var promise = Promise.resolve();
+
+    promise
+      .then(function() { listener.currentName = '1st then'; })
+      .then(function() { listener.currentName = '2nd then'; })
+      .then(function() { listener.currentName = '3rd then'; });
+
+    promise
+      .chain(function() { listener.currentName = '1st chain'; })
+      .chain(function() { listener.currentName = '2nd chain'; })
+      .chain(function() { listener.currentName = '3rd chain'; });
+
+    listener.currentName = 'setTimeout';
+    setTimeout(function() {
+      t.deepEqual(listener.root, expected);
+      t.end();
+    });
+
+    process.removeAsyncListener(listener.listener);
+
+    var expected = {
+      name: 'root',
+      children: [
+        {
+          name: 'resolve',
+          children: [
+            {
+              name: '1st then',
+              children: [
+                {
+                  name: '2nd then',
+                  children: [
+                    {
+                      name: '3rd then',
+                      children: [],
+                      before: 0,
+                      after: 0,
+                      error: 0
+                    }
+                  ],
+                  before: 1,
+                  after: 1,
+                  error: 0
+                }
+              ],
+              before: 1,
+              after: 1,
+              error: 0
+            },
+            {
+              name: '1st chain',
+              children: [
+                {
+                  name: '2nd chain',
+                  children: [
+                    {
+                      name: '3rd chain',
+                      children: [],
+                      before: 0,
+                      after: 0,
+                      error: 0
+                    }
+                  ],
+                  before: 1,
+                  after: 1,
+                  error: 0
+                }
+              ],
+              before: 1,
+              after: 1,
+              error: 0
+            }
+          ],
+          before: 2,
+          after: 2,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'resolve',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'setTimeout',
+          children: [],
+          before: 1,
+          after: 0,
+          error: 0
+        }
+      ],
+      before: 0,
+      after: 0,
+      error: 0
+    }
+  });
+
+  test('multi chain with promise', function(t) {
+    var listener = addListner();
+
+    listener.currentName = 'accept';
+    var promise = Promise.accept(10);
+
+    promise
+      .chain(function(val) {
+        return new Promise(function wait(accept) {
+          listener.currentName = 'nextTick in nested promise';
+          process.nextTick(function() {
+            listener.currentName = 'accept from nextTick';
+            accept(val);
+          });
+        });
+      })
+      .chain(function validate(val) {
+        t.strictEqual(val, 10);
+        t.strictEqual(this, global);
+
+        listener.currentName = 'setTimeout in 2nd chain';
+        setTimeout(function() {
+          t.deepEqual(listener.root, expected);
+          t.end();
+        });
+
+        listener.currentName = '2nd then continuation';
+      });
+
+    process.removeAsyncListener(listener.listener);
+
+    // Promise resolution changed slightly in node v6,
+    // now resolve/reject wraps again on completion.
+    var children = []
+    if (nodeVersion[0] >= 6) {
+      children.push({
+        name: 'accept from nextTick',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      })
+    }
+    children.push(
+      {
+        name: 'setTimeout in 2nd chain',
+        children: [],
+        before: 1,
+        after: 0,
+        error: 0
+      },
+      {
+        name: '2nd then continuation',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      }
+    )
+
+    var expected = {
+      name: 'root',
+      children: [
+        {
+          name: 'accept',
+          children: [
+            {
+              name: 'nextTick in nested promise',
+              children: [
+                {
+                  name: 'accept from nextTick',
+                  children: children,
+                  before: children.length - 1,
+                  after: children.length - 1,
+                  error: 0
+                }
+              ],
+              before: 1,
+              after: 1,
+              error: 0
+            }
+          ],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'accept',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'accept',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        }
+      ],
+      before: 0,
+      after: 0,
+      error: 0
+    }
+  });
+
+  test('multi chain with rejected promise', function(t) {
+    var listener = addListner();
+
+    listener.currentName = 'reject';
+    var promise = Promise.reject(10);
+
+    promise
+      .chain(fail, function(val) {
+        return new Promise(function wait(accept, reject) {
+          listener.currentName = 'nextTick in nested promise';
+          process.nextTick(function() {
+            listener.currentName = 'reject from nextTick';
+            reject(val);
+          });
+        });
+      })
+      .chain(fail, function validate(val) {
+        t.strictEqual(val, 10);
+        t.strictEqual(this, global);
+
+        listener.currentName = 'setTimeout in 2nd chain';
+        setTimeout(function() {
+          // some version of iojs use nextTick for some parts of its async
+          if (listener.root.children.length === 2) {
+            expected.children.splice(1, 0, {
+              name: 'reject',
+              children: [],
+              before: 1,
+              after: 1,
+              error: 0
+            })
+          }
+
+          t.deepEqual(listener.root, expected);
+          t.end();
+        });
+
+        listener.currentName = '2nd chain continuation';
+      });
+
+    function fail() {
+      t.fail('should not be called');
+      t.end();
+    }
+
+    process.removeAsyncListener(listener.listener);
+
+    // Promise resolution changed slightly in node v6,
+    // now resolve/reject wraps again on completion.
+    var children = []
+    if (nodeVersion[0] >= 6) {
+      children.push({
+        name: 'reject from nextTick',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      })
+    }
+    children.push(
+      {
+        name: 'setTimeout in 2nd chain',
+        children: [],
+        before: 1,
+        after: 0,
+        error: 0
+      },
+      {
+        name: '2nd chain continuation',
+        children: [],
+        before: 0,
+        after: 0,
+        error: 0
+      }
+    )
+
+    var expected = {
+      name: 'root',
+      children: [
+        {
+          name: 'reject',
+          children: [
+            {
+              name: 'nextTick in nested promise',
+              children: [
+                {
+                  name: 'reject from nextTick',
+                  children: children,
+                  before: children.length - 1,
+                  after: children.length - 1,
+                  error: 0
+                }
+              ],
+              before: 1,
+              after: 1,
+              error: 0
+            }
+          ],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'reject',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'reject',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        },
+        {
+          name: 'reject',
+          children: [],
+          before: 0,
+          after: 0,
+          error: 0
+        },
+        {
+          name: 'reject',
+          children: [],
+          before: 1,
+          after: 1,
+          error: 0
+        }
+      ],
+      before: 0,
+      after: 0,
+      error: 0
+    }
+  });
 }
