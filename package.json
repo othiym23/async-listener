@@ -34,6 +34,6 @@
     "shimmer": "^1.1.0"
   },
   "devDependencies": {
-    "tap": "^0.7.1"
+    "tap": "^7.0.1"
   }
 }
