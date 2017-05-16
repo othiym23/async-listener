@@ -108,6 +108,7 @@ wrap(net.Socket.prototype, 'connect', function (original) {
     var args = v7plus
       ? net._normalizeArgs(arguments)
       : net._normalizeConnectArgs(arguments);
+    if (Array.isArray(args[0])) args = args[0]
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
     patchOnRead(this);
