@@ -2198,3 +2198,21 @@ if (typeof Promise.prototype.chain === 'function') {
     }
   });
 }
+
+test('subclasses', function(t) {
+  if (nodeVersion[0] < 6) {
+    // class syntax is not supported before node 6.
+    t.end();
+    return;
+  }
+
+  // SubclassedPromise does 2 asserts.
+  t.plan(3);
+
+  var SubclassedPromise = require('./promise-subclass.js')(t);
+
+  var s = SubclassedPromise.resolve(42).then(function(val) {
+    t.strictEqual(val, 42);
+    t.end();
+  });
+});
