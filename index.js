@@ -14,7 +14,7 @@ var v7plus = semver.gte(process.version, '7.0.0');
 
 var net = require('net');
 
-// From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeConnectArgs
+// From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeArgs
 if (v7plus && !net._normalizeArgs) {
   // a polyfill in our polyfill etc so forth -- taken from node master on 2017/03/09
   net._normalizeArgs = function (args) {
@@ -104,7 +104,7 @@ function patchOnRead(ctx) {
 
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
-    // From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeConnectArgs
+    // From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeArgs
     var args = v7plus
       ? net._normalizeArgs(arguments)
       : net._normalizeConnectArgs(arguments);
