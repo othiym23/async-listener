@@ -414,11 +414,11 @@ function wrapPromise() {
 
     function wrappedExecutor(resolve, reject) {
       context = this;
-      args = [wrappedAccept, wrappedReject];
+      args = [wrappedResolve, wrappedReject];
 
       // These wrappers create a function that can be passed a function and an argument to
       // call as a continuation from the resolve or reject.
-      function wrappedAccept(val) {
+      function wrappedResolve(val) {
         ensureAslWrapper(promise, false);
         return resolve(val);
       }
