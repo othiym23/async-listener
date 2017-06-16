@@ -108,10 +108,12 @@ test('http.Agent socket reuse works', function(t){
     //
     // First ping branch
     //
-    var innerResumeChildren = [
-      make('res.resume ping #0'),
-      make('setImmediate to after #0')
-    ];
+    var innerResumeChildren = [];
+    if (nodeVersion[0] < 8) {
+      innerResumeChildren.push(make('res.resume ping #0'));
+    }
+    innerResumeChildren.push(make('setImmediate to after #0'));
+
     var innerResumeChildrenWrapped = [
       make('res.resume ping #0', {
         children: innerResumeChildren
@@ -154,9 +156,11 @@ test('http.Agent socket reuse works', function(t){
         ]
       })
     ];
-    if (nodeVersion[0] > 4) {
+
+    if (nodeVersion[0] > 4 && nodeVersion[0] < 8) {
       firstImmediateChildren.push(make('ping #0 request'));
-    }
+    };
+    
     firstImmediateChildren.push(
       make('ping #0 request'),
       make('ping #0 request', {
@@ -172,12 +176,15 @@ test('http.Agent socket reuse works', function(t){
     //
     // Second ping branch
     //
-    var innerPingChildren = [
-      make('res.resume ping #1'),
-      make('setImmediate to after #1', {
-        after: 0
-      })
-    ];
+    var innerPingChildren = [];
+    if (nodeVersion[0] < 8) {
+      innerPingChildren.push(make('res.resume ping #1'));
+    }
+
+    innerPingChildren.push(make('setImmediate to after #1', {
+      after: 0
+    }));
+
     var innerPingChildrenWrapped = [
       make('res.resume ping #1', {
         children: innerPingChildren
