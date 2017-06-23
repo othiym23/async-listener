@@ -5,7 +5,7 @@ module.exports = (tap) => {
     then(onSuccess, onReject) {
       tap.type(onSuccess, 'function');
       tap.type(onReject, 'undefined');
-      return Promise.prototype.then.call(this, onSuccess, onReject);
+      return super.then(onSuccess, onReject);
     }
   };
 };
