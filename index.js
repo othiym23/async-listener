@@ -316,7 +316,11 @@ if (crypto) {
   );
 }
 
-var instrumentPromise = !!global.Promise;
+// It is unlikely that any userspace promise implementations have a native
+// implementation of both Promise and Promise.toString.
+var instrumentPromise = !!global.Promise &&
+    Promise.toString() === 'function Promise() { [native code] }' &&
+    Promise.toString.toString() === 'function toString() { [native code] }';
 
 // Check that global Promise is native
 if (instrumentPromise) {
