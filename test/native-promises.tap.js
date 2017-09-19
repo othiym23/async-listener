@@ -2198,3 +2198,39 @@ if (typeof Promise.prototype.chain === 'function') {
     }
   });
 }
+
+test('es6 subclasses', function(t) {
+  if (nodeVersion[0] < 6) {
+    t.pass('class syntax is not supported before node 6');
+    t.end();
+    return;
+  }
+
+  // Promise subclasses do 2 asserts per promise.
+  t.plan(13);
+
+  var SubclassedPromise = require('./promise-subclass.js');
+  var StandardSubclassedPromise = SubclassedPromise(t, false);
+  var SubclassedPromiseCustomSpecies = SubclassedPromise(t, true);
+
+  var s = StandardSubclassedPromise.resolve(42).then(function(val) {
+    t.strictEqual(val, 42);
+    t.end();
+  });
+
+  var p1 =
+    new StandardSubclassedPromise(function(resolve) { resolve(123); })
+    .then(function() {});
+  t.ok(p1 instanceof StandardSubclassedPromise,
+    'should be StandardSubclassedPromise instance');
+  t.ok(p1 instanceof unwrappedPromise, 'should be unwrappedPromise instance');
+  t.ok(p1 instanceof Promise, 'should be base Promise instance');
+
+  var p2 =
+    new SubclassedPromiseCustomSpecies(function(resolve) { resolve(123); })
+    .then(function() {});
+  t.notOk(p2 instanceof SubclassedPromiseCustomSpecies,
+    'should not be SubclassedPromiseCustomSpecies instance');
+  t.ok(p2 instanceof unwrappedPromise, 'should be unwrappedPromise instance');
+  t.ok(p2 instanceof Promise, 'should be base Promise instance');
+});

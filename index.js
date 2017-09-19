@@ -10,6 +10,7 @@ var shimmer      = require('shimmer')
   , util         = require('util')
   ;
 
+var v6plus = semver.gte(process.version, '6.0.0');
 var v7plus = semver.gte(process.version, '7.0.0');
 
 var net = require('net');
@@ -315,7 +316,11 @@ if (crypto) {
   );
 }
 
-var instrumentPromise = !!global.Promise;
+// It is unlikely that any userspace promise implementations have a native
+// implementation of both Promise and Promise.toString.
+var instrumentPromise = !!global.Promise &&
+    Promise.toString() === 'function Promise() { [native code] }' &&
+    Promise.toString.toString() === 'function toString() { [native code] }';
 
 // Check that global Promise is native
 if (instrumentPromise) {
@@ -391,6 +396,8 @@ if (instrumentPromise) {
 function wrapPromise() {
   var Promise = global.Promise;
 
+  // Updates to this class should also be applied to the the ES6 version
+  // in es6-wrapped-promise.js.
   function wrappedPromise(executor) {
     if (!(this instanceof wrappedPromise)) {
       return Promise(executor);
@@ -407,7 +414,7 @@ function wrapPromise() {
     try {
       executor.apply(context, args);
     } catch (err) {
-      args[1](err)
+      args[1](err);
     }
 
     return promise;
@@ -438,23 +445,26 @@ function wrapPromise() {
     wrap(Promise.prototype, 'chain', wrapThen);
   }
 
-  var PromiseFunctions = [
-    'all',
-    'race',
-    'reject',
-    'resolve',
-    'accept',  // Node.js <v7 only
-    'defer'    // Node.js <v7 only
-  ];
+  if (v6plus) {
+    global.Promise = require('./es6-wrapped-promise.js')(Promise, ensureAslWrapper);
+  } else {
+    var PromiseFunctions = [
+      'all',
+      'race',
+      'reject',
+      'resolve',
+      'accept',  // Node.js <v7 only
+      'defer'    // Node.js <v7 only
+    ];
 
-  PromiseFunctions.forEach(function(key) {
-    // don't break `in` by creating a key for undefined entries
-    if (typeof Promise[key] === 'function') {
-      wrappedPromise[key] = Promise[key];
-    }
-  });
-
-  global.Promise = wrappedPromise;
+    PromiseFunctions.forEach(function(key) {
+      // don't break `in` by creating a key for undefined entries
+      if (typeof Promise[key] === 'function') {
+        wrappedPromise[key] = Promise[key];
+      }
+    });
+    global.Promise = wrappedPromise
+  }
 
   function ensureAslWrapper(promise, overwrite) {
     if (!promise.__asl_wrapper || overwrite) {
