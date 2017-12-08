@@ -25,29 +25,18 @@ compressors.forEach(function (method) {
     list.push(el);
   }
 
-  test('test ' + name, function (t) {
-    test_helper(t, function (listener, done) {
-      listener.currentName = name;
-      zlib[method](new Buffer('Goodbye World'), done);
-    }, {
-      name: 'root',
+  var children = [
+    {
+      name: name,
+      // Compressors use streams internally,
+      // so there's a bunch of nested stuff.
       children: [
         {
           name: name,
-          // Compressors use streams internally,
-          // so there's a bunch of nested stuff.
           children: [
             {
               name: name,
-              children: [
-                {
-                  name: name,
-                  children: list,
-                  before: 1,
-                  after: 1,
-                  error: 0
-                }
-              ],
+              children: list,
               before: 1,
               after: 1,
               error: 0
@@ -58,6 +47,28 @@ compressors.forEach(function (method) {
           error: 0
         }
       ],
+      before: 1,
+      after: 1,
+      error: 0
+    }
+  ]
+  if (nodeVersion[0] >= 9) {
+    children.unshift({
+      name: name,
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    })
+  }
+
+  test('test ' + name, function (t) {
+    test_helper(t, function (listener, done) {
+      listener.currentName = name;
+      zlib[method](new Buffer('Goodbye World'), done);
+    }, {
+      name: 'root',
+      children: children,
       before: 0,
       after: 0,
       error: 0
@@ -80,6 +91,43 @@ decompressors.forEach(function (method, i) {
     list.push(el);
   }
 
+  var children = [
+    {
+      name: name,
+      // Compressors use streams internally,
+      // so there's a bunch of nested stuff.
+      children: [
+        {
+          name: name,
+          children: [
+            {
+              name: name,
+              children: list,
+              before: 1,
+              after: 1,
+              error: 0
+            }
+          ],
+          before: 1,
+          after: 1,
+          error: 0
+        }
+      ],
+      before: 1,
+      after: 1,
+      error: 0
+    }
+  ]
+  if (nodeVersion[0] >= 9) {
+    children.unshift({
+      name: name,
+      children: [],
+      before: 1,
+      after: 1,
+      error: 0
+    })
+  }
+
   test('test ' + name, function (t) {
     zlib[preMethod](new Buffer('Goodbye World'), function (err, buf) {
       t.ok(!err, 'should not have errored in preparation')
@@ -88,33 +136,7 @@ decompressors.forEach(function (method, i) {
         zlib[method](buf, done);
       }, {
         name: 'root',
-        children: [
-          {
-            name: name,
-            // Compressors use streams internally,
-            // so there's a bunch of nested stuff.
-            children: [
-              {
-                name: name,
-                children: [
-                  {
-                    name: name,
-                    children: list,
-                    before: 1,
-                    after: 1,
-                    error: 0
-                  }
-                ],
-                before: 1,
-                after: 1,
-                error: 0
-              }
-            ],
-            before: 1,
-            after: 1,
-            error: 0
-          }
-        ],
+        children: children,
         before: 0,
         after: 0,
         error: 0
