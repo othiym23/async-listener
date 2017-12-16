@@ -24,9 +24,9 @@ function parameter is as follows:
 
 1. `callbacks`: An `Object` which may contain four optional fields:
    * `create`: A `function (storage)` that is called when an asynchronous event
-     is queued. Recives the `storage` attached to the listner. `storage` can be
-     created by passing an `initialStorage` argument during costruction, or by
-     returning a `Value` from `create` which will be attached to the listner
+     is queued. Recives the `storage` attached to the listener. `storage` can be
+     created by passing an `initialStorage` argument during construction, or by
+     returning a `Value` from `create` which will be attached to the listener
      and overwrite the `initialStorage`.
    * `before`: A `function (context, storage)` that is called immediately
      before the asynchronous callback is about to run. It will be passed both
