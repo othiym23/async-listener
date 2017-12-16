@@ -157,7 +157,7 @@ test('http.Agent socket reuse works', function(t){
       })
     ];
 
-    if (nodeVersion[0] > 4 && nodeVersion[0] < 8) {
+    if (nodeVersion[0] > 4) {
       firstImmediateChildren.push(make('ping #0 request'));
     };
     
