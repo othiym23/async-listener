@@ -107,7 +107,9 @@ function patchOnRead(ctx) {
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
     var args;
-    if (v8plus && Array.isArray(arguments[0])) {
+    if (v8plus &&
+        Array.isArray(arguments[0]) &&
+        Object.getOwnPropertySymbols(arguments[0]).length > 0) {
       // already normalized
       args = arguments[0];
     } else {
