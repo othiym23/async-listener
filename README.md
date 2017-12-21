@@ -1,5 +1,7 @@
 [![NPM](https://nodei.co/npm/async-listener.png?downloads=true&stars=true)](https://nodei.co/npm/async-listener/)
 
+[![Build status](https://travis-ci.org/othiym23/async-listener.svg?branch=master)](https://travis-ci.org/othiym23/async-listener)
+
 # process.addAsyncListener polyfill
 
 This is an implementation of Trevor Norris's
