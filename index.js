@@ -107,13 +107,18 @@ function patchOnRead(ctx) {
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
     var args;
+    // Node core uses an internal Symbol here to guard against the edge-case
+    // where the user accidentally passes in an array. As we don't have access
+    // to this Symbol we resort to this hack where we just detect if there is a
+    // symbol or not. Checking for the number of Symbols is by no means a fool
+    // proof solution, but it catches the most basic cases.
     if (v8plus &&
         Array.isArray(arguments[0]) &&
         Object.getOwnPropertySymbols(arguments[0]).length > 0) {
       // already normalized
       args = arguments[0];
     } else {
-    // From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeArgs
+      // From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeArgs
       args = v7plus
         ? net._normalizeArgs(arguments)
         : net._normalizeConnectArgs(arguments);
