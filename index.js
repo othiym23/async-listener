@@ -12,6 +12,7 @@ var shimmer      = require('shimmer')
 
 var v6plus = semver.gte(process.version, '6.0.0');
 var v7plus = semver.gte(process.version, '7.0.0');
+var v8plus = semver.gte(process.version, '8.0.0');
 
 var net = require('net');
 
@@ -105,10 +106,18 @@ function patchOnRead(ctx) {
 
 wrap(net.Socket.prototype, 'connect', function (original) {
   return function () {
+    var args;
+    if (v8plus &&
+        Array.isArray(arguments[0]) &&
+        Object.getOwnPropertySymbols(arguments[0]).length > 0) {
+      // already normalized
+      args = arguments[0];
+    } else {
     // From Node.js v7.0.0, net._normalizeConnectArgs have been renamed net._normalizeArgs
-    var args = v7plus
-      ? net._normalizeArgs(arguments)
-      : net._normalizeConnectArgs(arguments);
+      args = v7plus
+        ? net._normalizeArgs(arguments)
+        : net._normalizeConnectArgs(arguments);
+    }
     if (args[1]) args[1] = wrapCallback(args[1]);
     var result = original.apply(this, args);
     patchOnRead(this);
