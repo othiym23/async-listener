@@ -13,6 +13,7 @@ var shimmer      = require('shimmer')
 var v6plus = semver.gte(process.version, '6.0.0');
 var v7plus = semver.gte(process.version, '7.0.0');
 var v8plus = semver.gte(process.version, '8.0.0');
+var v11plus = semver.gte(process.version, '11.0.0');
 
 var net = require('net');
 
@@ -329,15 +330,16 @@ if (zlib && zlib.Deflate && zlib.Deflate.prototype) {
 var crypto;
 try { crypto = require('crypto'); } catch (err) { }
 if (crypto) {
-  massWrap(
-    crypto,
-    [
+
+  var toWrap = [
       'pbkdf2',
       'randomBytes',
-      'pseudoRandomBytes',
-    ],
-    activator
-  );
+  ];
+  if (!v11plus) {
+    toWrap.push('pseudoRandomBytes');
+  }
+
+  massWrap(crypto, toWrap, activator);
 }
 
 // It is unlikely that any userspace promise implementations have a native
