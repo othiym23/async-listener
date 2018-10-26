@@ -329,15 +329,16 @@ if (zlib && zlib.Deflate && zlib.Deflate.prototype) {
 var crypto;
 try { crypto = require('crypto'); } catch (err) { }
 if (crypto) {
-  massWrap(
-    crypto,
-    [
+
+  const toWrap = [
       'pbkdf2',
       'randomBytes',
-      'pseudoRandomBytes',
-    ],
-    activator
-  );
+  ];
+  if (semver.lt(process.version, '11.0.0')) {
+    toWrap.push('pseudoRandomBytes');
+  }
+
+  massWrap(crypto, toWrap, activator);
 }
 
 // It is unlikely that any userspace promise implementations have a native
