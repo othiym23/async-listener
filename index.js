@@ -335,7 +335,7 @@ if (crypto) {
       'pbkdf2',
       'randomBytes',
   ];
-  if (v11plus) {
+  if (!v11plus) {
     toWrap.push('pseudoRandomBytes');
   }
 
