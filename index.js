@@ -13,6 +13,7 @@ var shimmer      = require('shimmer')
 var v6plus = semver.gte(process.version, '6.0.0');
 var v7plus = semver.gte(process.version, '7.0.0');
 var v8plus = semver.gte(process.version, '8.0.0');
+var v11plus = semver.gte(process.version, '11.0.0');
 
 var net = require('net');
 
@@ -334,7 +335,7 @@ if (crypto) {
       'pbkdf2',
       'randomBytes',
   ];
-  if (semver.lt(process.version, '11.0.0')) {
+  if (v11plus) {
     toWrap.push('pseudoRandomBytes');
   }
 
