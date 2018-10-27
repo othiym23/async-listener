@@ -331,7 +331,7 @@ var crypto;
 try { crypto = require('crypto'); } catch (err) { }
 if (crypto) {
 
-  const toWrap = [
+  var toWrap = [
       'pbkdf2',
       'randomBytes',
   ];
