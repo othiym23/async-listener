@@ -6,9 +6,11 @@ var shimmer      = require('shimmer')
   , semver       = require('semver')
   , wrap         = shimmer.wrap
   , massWrap     = shimmer.massWrap
-  , wrapCallback = require('./glue.js')
+  , glue = require('./glue.js')
+  , wrapCallback = glue.wrapCallback
   , util         = require('util')
   ;
+glue.initProcess();
 
 var v6plus = semver.gte(process.version, '6.0.0');
 var v7plus = semver.gte(process.version, '7.0.0');
