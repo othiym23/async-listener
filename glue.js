@@ -480,9 +480,12 @@ function removeAsyncListener(listener) {
     }
   }
 }
-
-process.createAsyncListener = createAsyncListener;
-process.addAsyncListener    = addAsyncListener;
-process.removeAsyncListener = removeAsyncListener;
-
-module.exports = wrapCallback;
+function initProcess() {
+  process.createAsyncListener = createAsyncListener;
+  process.addAsyncListener    = addAsyncListener;
+  process.removeAsyncListener = removeAsyncListener;
+}
+module.exports = {
+  wrapCallback: wrapCallback,
+  initProcess: initProcess
+};
