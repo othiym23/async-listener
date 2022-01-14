@@ -567,43 +567,43 @@ function activator(fn) {
   // Preserve function length for small arg count functions.
   switch (fn.length) {
     case 1:
-      return function (cb) {
+      return Object.assign(function (cb) {
         if (arguments.length !== 1) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb);
-      };
+      }, fn);
     case 2:
-      return function (a, cb) {
+      return Object.assign(function (a, cb) {
         if (arguments.length !== 2) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, a, cb);
-      };
+      }, fn);
     case 3:
-      return function (a, b, cb) {
+      return Object.assign(function (a, b, cb) {
         if (arguments.length !== 3) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, a, b, cb);
-      };
+      }, fn);
     case 4:
-      return function (a, b, c, cb) {
+      return Object.assign(function (a, b, c, cb) {
         if (arguments.length !== 4) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, a, b, c, cb);
-      };
+      }, fn);
     case 5:
-      return function (a, b, c, d, cb) {
+      return Object.assign(function (a, b, c, d, cb) {
         if (arguments.length !== 5) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, a, b, c, d, cb);
-      };
+      }, fn);
     case 6:
-      return function (a, b, c, d, e, cb) {
+      return Object.assign(function (a, b, c, d, e, cb) {
         if (arguments.length !== 6) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, a, b, c, d, e, cb);
-      };
+      }, fn);
     default:
-      return fallback;
+      return Object.assign(fallback, fn);
   }
 }
 
@@ -623,43 +623,43 @@ function activatorFirst(fn) {
   // Preserve function length for small arg count functions.
   switch (fn.length) {
     case 1:
-      return function (cb) {
+      return Object.assign(function (cb) {
         if (arguments.length !== 1) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb);
-      };
+      }, fn);
     case 2:
-      return function (cb, a) {
+      return Object.assign(function (cb, a) {
         if (arguments.length !== 2) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb, a);
-      };
+      }, fn);
     case 3:
-      return function (cb, a, b) {
+      return Object.assign(function (cb, a, b) {
         if (arguments.length !== 3) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb, a, b);
-      };
+      }, fn);
     case 4:
-      return function (cb, a, b, c) {
+      return Object.assign(function (cb, a, b, c) {
         if (arguments.length !== 4) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb, a, b, c);
-      };
+      }, fn);
     case 5:
-      return function (cb, a, b, c, d) {
+      return Object.assign(function (cb, a, b, c, d) {
         if (arguments.length !== 5) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb, a, b, c, d);
-      };
+      }, fn);
     case 6:
-      return function (cb, a, b, c, d, e) {
+      return Object.assign(function (cb, a, b, c, d, e) {
         if (arguments.length !== 6) return fallback.apply(this, arguments);
         if (typeof cb === "function") cb = wrapCallback(cb);
         return fn.call(this, cb, a, b, c, d, e);
-      };
+      }, fn);
     default:
-      return fallback;
+      return Object.assign(fallback, fn);
   }
 }
 
